@@ -12,6 +12,7 @@ import OrderBookPanel from "./components/OrderBookPanel";
 import ValidationPanel from "./components/ValidationPanel";
 import IndicatorScorePanel from "./components/IndicatorScorePanel";
 import LiqStudyPanel from "./components/LiqStudyPanel";
+import FindingsPanel from "./components/FindingsPanel";
 import SignalPanel from "./components/SignalPanel";
 import JournalPanel from "./components/JournalPanel";
 
@@ -99,6 +100,10 @@ function Dashboard() {
 
         <div className="md:col-span-2 xl:col-span-5">
           <LiqStudyPanel api={api} liq={liq} />
+        </div>
+
+        <div className="md:col-span-2 xl:col-span-7">
+          <FindingsPanel />
         </div>
       </main>
 

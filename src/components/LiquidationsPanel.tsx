@@ -13,6 +13,22 @@ import { Card, DualBar, Empty, Tag } from "./ui";
    que importa de verdad: si las liquidaciones llegan a goteo o de golpe.
    Ahora lo primero es un histograma temporal de los últimos 60 min, partido
    por lado, con detección de cascada.
+
+   LO QUE SE MIDIÓ Y HAY QUE DECIR AQUÍ.
+
+   Este panel es el corazón visual de la app, y la tesis que lo justificaba
+   —que el precio va hacia los cúmulos de liquidez— se puso a prueba con
+   posiciones reales de la cámara de compensación de Hyperliquid y NO se
+   sostiene: −0,177 % neto, t = −0,71, con muestra suficiente para haber
+   detectado cualquier efecto rentable.
+
+   Y se sabe además por qué: los que revientan no vuelven. Elegidos en la
+   primera mitad del mes, los reincidentes reaparecen en la segunda un 9,6 %
+   frente al 5,0 % del resto — 1,49σ, indistinguible del azar. El mapa
+   describe un accidente irrepetible, no un hábito.
+
+   Sigue siendo un dato REAL y útil para saber qué está pasando ahora mismo.
+   No es un pronóstico, y el panel lo dice.
    ============================================================ */
 
 const EXCHANGE_LABEL: Partial<Record<Provenance, string>> = {
@@ -283,6 +299,20 @@ export default function LiquidationsPanel({ api }: { api: MarketApi }) {
           })
         )}
       </div>
+
+      <footer className="mt-auto border-t border-[var(--color-line-soft)] px-4 py-2.5">
+        <p className="font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
+          Liquidaciones <b className="text-[var(--color-muted)]">reales</b> de OKX y Bybit, agregadas en vivo. Dicen
+          qué está pasando ahora mismo, y para eso sirven.
+        </p>
+        <p className="mt-1.5 font-mono text-[8px] leading-relaxed text-[var(--color-warn)]">
+          <b>No son un pronóstico.</b> La tesis de que el precio va hacia los cúmulos se midió sobre posiciones reales
+          de Hyperliquid y no se sostiene (−0,18 % neto, t=−0,71, con muestra para haber visto cualquier efecto
+          rentable). Y los que revientan no vuelven: los reincidentes reaparecen un 9,6 % frente al 5,0 % del resto,
+          1,49σ. El mapa describe un accidente, no un hábito. Está todo en{" "}
+          <b className="text-[var(--color-muted)]">Qué se ha comprobado</b>.
+        </p>
+      </footer>
     </Card>
   );
 }

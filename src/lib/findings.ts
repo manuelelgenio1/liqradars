@@ -1,0 +1,181 @@
+// ============================================================
+// EL EXPEDIENTE.
+//
+// Todo lo que se ha puesto a prueba en este proyecto, con su muestra y su
+// resultado. Vive aquí, en el código, y no en mensajes de commit que nadie va
+// a leer.
+//
+// POR QUÉ ESTO ES UN MÓDULO Y NO UN TEXTO EN UN PANEL
+//
+// Una herramienta que enseña indicadores y niveles está diciendo, aunque no
+// lo escriba, "esto sirve para algo". Casi ninguna dice cuánto de eso ha
+// comprobado. Aquí el historial de fracasos es tan parte del producto como
+// los gráficos, así que se trata como dato: con tipos, con tests y visible
+// en pantalla.
+//
+// REGLAS QUE CUMPLE CADA ENTRADA
+//   · La muestra se cuenta en SUCESOS INDEPENDIENTES, no en filas. Una
+//     cascada que toca cinco pares a la vez es un suceso.
+//   · El resultado va NETO de comisiones, medidas contra la distancia al stop.
+//   · Cuando se contrastan varias hipótesis sobre los mismos datos, el listón
+//     sube (Bonferroni). Se dice cuál se usó.
+//   · "Muestra corta" y "no hay efecto" son cosas DISTINTAS y se distinguen:
+//     solo se declara lo segundo cuando había potencia para ver el efecto.
+// ============================================================
+
+export type Verdict =
+  /** medida con potencia suficiente: el efecto no está */
+  | "descartada"
+  /** el efecto existe pero no cubre el coste de operarlo */
+  | "no-operable"
+  /** no hay muestra suficiente para decidir */
+  | "abierta"
+  /** supera la prueba y sigue en pie */
+  | "en-pie";
+
+export interface Finding {
+  id: string;
+  /** qué se puso a prueba, en una frase */
+  hypothesis: string;
+  verdict: Verdict;
+  /** tamaño de muestra, en sucesos independientes */
+  sample: string;
+  /** las cifras que sostienen el veredicto */
+  numbers: string;
+  /** qué significa, sin adornos */
+  meaning: string;
+  /** dónde se midió, cuando no es Binance */
+  venue?: string;
+}
+
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  descartada: "DESCARTADA",
+  "no-operable": "NO OPERABLE",
+  abierta: "ABIERTA",
+  "en-pie": "EN PIE",
+};
+
+export const FINDINGS: Finding[] = [
+  {
+    id: "indicadores",
+    hypothesis: "Los indicadores clásicos aciertan la dirección",
+    verdict: "descartada",
+    sample: "25 mediciones sobre 6 pares",
+    numbers: "19 de 25 por debajo de su propia línea base",
+    meaning:
+      "Un indicador que grita «alcista» casi siempre acierta tanto como el mercado suba. Restada esa línea base, la mayoría aporta menos que nada.",
+  },
+  {
+    id: "contra-ema-rsi",
+    hypothesis: "Cuando EMA y RSI coinciden, conviene hacer lo contrario",
+    verdict: "no-operable",
+    sample: "243.000 velas · 2023, 2024 y 2026",
+    numbers: "+4,3 puntos de acierto · esperanza NEGATIVA antes de comisiones",
+    meaning:
+      "Acierta más veces y pierde 1,27× más cuando falla. Es la trampa que más se repite: el porcentaje sube y la cuenta baja.",
+  },
+  {
+    id: "libro",
+    hypothesis: "El desequilibrio del libro predice la dirección",
+    verdict: "no-operable",
+    sample: "30 días · 6 símbolos · libro histórico real",
+    numbers: "+0,026 % bruto contra un coste de 0,14 %",
+    meaning:
+      "Sí predice, y el efecto crece cuanto más cerca del precio se mira. Pero es cinco veces menor que la comisión: los creadores de mercado ya se comieron ese margen.",
+  },
+  {
+    id: "panel-señales",
+    hypothesis: "El consenso ponderado de esta app gana dinero",
+    verdict: "descartada",
+    sample: "409 sucesos independientes · 28 días",
+    numbers: "acierta 40,4 % contra 38,5 % del azar · −0,42R por operación",
+    meaning:
+      "La señal es algo mejor que una moneda al aire. La comisión se lleva 0,51R y la deja en pérdidas.",
+  },
+  {
+    id: "marcos-anchos",
+    hypothesis: "En marcos anchos el coste deja margen y la señal funciona",
+    verdict: "descartada",
+    sample: "180 días · 1H, 4H y diario",
+    numbers: "en 4H: −0,049R la señal, −0,049R la moneda al aire",
+    meaning:
+      "El coste baja de 0,64R en 5m a 0,02R en diario, como se esperaba. Pero debajo no aparece ninguna ventaja: en 4H iguala al azar con cinco decimales.",
+  },
+  {
+    id: "liquidaciones",
+    hypothesis: "Un estallido de liquidaciones anticipa el movimiento",
+    verdict: "descartada",
+    sample: "157 sucesos independientes · 30 días",
+    numbers: "continuación −0,079 % neto · agotamiento −0,201 % · t máx. 0,77",
+    meaning:
+      "Ninguna de las dos lecturas opuestas se acerca al listón. Y el agotamiento acierta 56,1 % contra 53,0 % de base con retorno negativo: la trampa otra vez.",
+    venue: "Hyperliquid",
+  },
+  {
+    id: "iman",
+    hypothesis: "El precio va hacia los cúmulos de liquidez",
+    verdict: "descartada",
+    sample: "62 sucesos · posiciones reales de la cámara de compensación",
+    numbers: "−0,177 % neto · t = −0,71 · potencia para ver +0,05 %",
+    meaning:
+      "Es la tesis que da nombre a esta app y no se sostiene. Con la muestra que hay se habría detectado cualquier efecto rentable, así que no es «no se sabe»: es que no está.",
+    venue: "Hyperliquid",
+  },
+  {
+    id: "monederos",
+    hypothesis: "Los cúmulos los alimenta una población recurrente",
+    verdict: "descartada",
+    sample: "5.892 liquidaciones · 21 días · elegidos en la 1ª mitad, comprobados en la 2ª",
+    numbers: "reincidentes vuelven 9,6 % · resto 5,0 % · diferencia 1,49σ",
+    meaning:
+      "Los que revientan no vuelven. El que acumuló 137 liquidaciones y 144.000 $ de pérdidas desaparece. El mapa describe un accidente irrepetible, no un hábito — y eso explica que no prediga.",
+    venue: "Hyperliquid",
+  },
+  {
+    id: "barrido-stops",
+    hypothesis: "El mercado va a buscar donde están los stops voluntarios",
+    verdict: "abierta",
+    sample: "33 sucesos · harían falta 51",
+    numbers: "t = 1,08 · dispersión 0,781 %",
+    meaning:
+      "Aquí sí falta muestra: con estos datos no se podría ver un efecto de +0,20 % aunque existiera. Es lo único que queda sin responder, no un descarte.",
+    venue: "Hyperliquid",
+  },
+  {
+    id: "cancelaciones",
+    hypothesis: "Una cancelación anómala de órdenes anticipa volatilidad",
+    verdict: "en-pie",
+    sample: "88 casos · 12 combinaciones de horizonte y umbral",
+    numbers: "−3,3σ a 1, 2 y 4 h · las 12 con el mismo signo · decae a las 8 h",
+    meaning:
+      "Sale al revés de lo esperado: tras cancelar mucho el mercado se mueve MENOS. Cuadra con que cancelar sea síntoma de calma — en volatilidad las órdenes se ejecutan en vez de cancelarse. No dice dirección, así que no gana dinero sola: sirve para dimensionar el stop.",
+    venue: "Hyperliquid",
+  },
+  {
+    id: "replica-binance",
+    hypothesis: "Ese mismo patrón aparece en Binance",
+    verdict: "abierta",
+    sample: "646 puntos · sustituto: rotación del libro",
+    numbers: "el +2,89σ inicial se evapora al controlar por volatilidad actual (correlación 0,43)",
+    meaning:
+      "Binance no publica cuentas de cancelación. El sustituto mezcla recotización con ejecución, así que no sirve para replicar. No confirma ni refuta: falta el dato.",
+  },
+];
+
+export interface FindingsSummary {
+  total: number;
+  descartadas: number;
+  noOperables: number;
+  abiertas: number;
+  enPie: number;
+}
+
+export function summarize(fs: Finding[] = FINDINGS): FindingsSummary {
+  return {
+    total: fs.length,
+    descartadas: fs.filter((f) => f.verdict === "descartada").length,
+    noOperables: fs.filter((f) => f.verdict === "no-operable").length,
+    abiertas: fs.filter((f) => f.verdict === "abierta").length,
+    enPie: fs.filter((f) => f.verdict === "en-pie").length,
+  };
+}
