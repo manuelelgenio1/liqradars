@@ -1,0 +1,60 @@
+# ============================================================
+# Grabador de liquidaciones.
+#
+# Cada hora despierta, lee las últimas ~24 h de liquidaciones de OKX, anota los
+# estallidos nuevos y cierra los que ya cumplieron su hora. Después escribe el
+# resultado en el propio repositorio.
+#
+# El commit ES el registro: lleva fecha, firma y no se puede alterar el pasado
+# sin que quede rastro en el historial. Esa es toda la gracia de hacerlo aquí.
+#
+# Por qué cada hora y no cada cinco minutos: la ventana de rebobinado de OKX es
+# de 24 h, así que con una vez por hora hay veinticuatro veces más margen del
+# necesario. Si GitHub se retrasa —su cron es aproximado— o falla una ejecución
+# entera, la siguiente recupera todo lo que se perdió. Gastar más minutos no
+# aportaría un solo dato.
+# ============================================================
+name: Grabar liquidaciones
+
+on:
+  schedule:
+    - cron: "17 * * * *" # a y 17 de cada hora: las horas en punto van saturadas
+  workflow_dispatch: # y también a mano, desde la pestaña Actions
+
+permissions:
+  contents: write
+
+# Dos ejecuciones a la vez se pisarían al escribir el archivo.
+concurrency:
+  group: grabador
+  cancel-in-progress: false
+
+jobs:
+  grabar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Grabar estallidos
+        id: rec
+        run: node scripts/record.mjs
+
+      - name: Guardar en el historial
+        if: steps.rec.outputs.changed == 'true'
+        run: |
+          git config user.name "grabador"
+          git config user.email "grabador@users.noreply.github.com"
+          git add data/liqstudy.json
+          git commit -m "registro: ${{ steps.rec.outputs.summary }}"
+          # Otra ejecución pudo haber escrito mientras tanto.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            sleep 5
+          done
+          exit 1

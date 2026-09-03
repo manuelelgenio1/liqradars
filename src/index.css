@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Sistema visual LIQRADAR FINAL
+   Paleta más sobria que la anterior: menos neón, más contraste
+   donde importa (los números), y jerarquía por peso en vez de por
+   saturación. Fondo casi negro azulado, acentos usados con cuentagotas.
+   ============================================================ */
+@theme {
+  --font-display: "Chakra Petch", "IBM Plex Sans", system-ui, sans-serif;
+  --font-body: "Inter", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+
+  /* superficies */
+  --color-bg: #05070c;
+  --color-surface: #0a0e17;
+  --color-surface-2: #0f1522;
+  --color-surface-3: #151d2e;
+  --color-line: #1d283c;
+  --color-line-soft: #16202f;
+
+  /* texto */
+  --color-dim: #55637d;
+  --color-muted: #7c8ba6;
+  --color-body: #aebbd2;
+  --color-bright: #dfe7f4;
+  --color-white: #f4f8ff;
+
+  /* semántica */
+  --color-up: #21d4a0;
+  --color-up-soft: #0e3b31;
+  --color-down: #ff5470;
+  --color-down-soft: #3d1220;
+  --color-warn: #ffb545;
+  --color-warn-soft: #3a2a0e;
+  --color-info: #57a8ff;
+  --color-info-soft: #0d2842;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-body);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* fondo ambiental sutil, sin la rejilla ruidosa de la versión anterior */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 680px at 15% -10%, rgba(33, 212, 160, 0.05), transparent 60%),
+    radial-gradient(1000px 620px at 88% 4%, rgba(87, 168, 255, 0.045), transparent 58%),
+    linear-gradient(180deg, #070b12 0%, var(--color-bg) 60%);
+}
+
+/* ---------- superficies ---------- */
+.card {
+  position: relative;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(15, 21, 34, 0.9), rgba(10, 14, 23, 0.95));
+  box-shadow: 0 1px 0 rgba(223, 231, 244, 0.03) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-bright);
+}
+.card-sub {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+}
+
+/* ---------- etiquetas de procedencia ---------- */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tag-real { border-color: rgba(33, 212, 160, 0.4); background: var(--color-up-soft); color: var(--color-up); }
+.tag-partial { border-color: rgba(255, 181, 69, 0.4); background: var(--color-warn-soft); color: var(--color-warn); }
+.tag-none { border-color: var(--color-line); background: var(--color-surface-2); color: var(--color-dim); }
+
+/* números tabulares en todas partes: evita el baile al actualizar */
+.tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+
+.up { color: var(--color-up); }
+.down { color: var(--color-down); }
+
+/* ---------- scrollbars ---------- */
+.slim::-webkit-scrollbar { width: 7px; height: 7px; }
+.slim::-webkit-scrollbar-track { background: transparent; }
+.slim::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 99px; }
+.slim::-webkit-scrollbar-thumb:hover { background: var(--color-surface-3); }
+.slim { scrollbar-width: thin; scrollbar-color: var(--color-line) transparent; }
+
+/* ---------- animación, con moderación ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(33, 212, 160, 0.5); }
+  70% { opacity: 0.6; box-shadow: 0 0 0 5px rgba(33, 212, 160, 0); }
+}
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.rise { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.live-dot { animation: pulseDot 1.8s ease-out infinite; }
+
+/* placeholder mientras carga: mejor que un número falso */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-surface-3) 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

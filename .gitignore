@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.vercel/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+.vercel
+
+# datos de trabajo de los experimentos
+.probe/cache/
+.probe/*.mjs
