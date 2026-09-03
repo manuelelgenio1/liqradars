@@ -26,15 +26,10 @@ const buena = (i: number, extra: Record<string, unknown> = {}) => ({
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("sin configurar", () => {
-  it("no intenta pedir nada y lo dice", async () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
-    const r = await fetchServerStudy();
-    // en las pruebas no hay VITE_LIQSTUDY_URL, así que este es el camino real
-    expect(SERVER_URL).toBe("");
-    expect(r.error).toBe("sin configurar");
-    expect(fetchSpy).not.toHaveBeenCalled();
+describe("configuración", () => {
+  it("trae una URL por defecto, sin depender del alojamiento", () => {
+    // Si esto queda vacío, un despliegue se quedaría sin registro en silencio.
+    expect(SERVER_URL).toMatch(/^https:\/\//);
   });
 
   it("el estado vacío no finge un veredicto", () => {
@@ -43,8 +38,8 @@ describe("sin configurar", () => {
 });
 
 describe("saneado de filas", () => {
-  // fetchServerStudy corta antes si no hay URL, así que el filtro se prueba a
-  // través del análisis, que es donde importa que no entre basura.
+  // El filtro se prueba también a través del análisis, que es donde de verdad
+  // importa que no entre basura.
   const filtrar = (obs: unknown[]) =>
     obs.filter((o) => {
       const x = o as Record<string, unknown>;
@@ -104,8 +99,6 @@ describe("saneado de filas", () => {
 });
 
 describe("fallos de red", () => {
-  // Con SERVER_URL vacío estos caminos no se alcanzan desde fetchServerStudy,
-  // así que se comprueba que el estado vacío que devuelven es utilizable.
   it("el estado vacío es seguro de analizar", () => {
     const r = analyze(emptyServer().study);
     expect(r.momentum).toBeNull();
@@ -118,10 +111,39 @@ describe("fallos de red", () => {
     expect(analyze({ obs: obs as never, lastBurst: {} }).verdict).toBe("SIN DATOS");
   });
 
-  it("respuesta simulada: se lee sin lanzar", async () => {
-    vi.stubGlobal("fetch", respuesta({ obs: [buena(1)], updatedAt: 5, runs: 2 }));
-    // sin URL configurada devuelve "sin configurar" sin tocar la red: el
-    // comportamiento correcto para un despliegue todavía sin enlazar
-    await expect(fetchServerStudy()).resolves.toMatchObject({ error: "sin configurar" });
+  it("lee una respuesta correcta", async () => {
+    vi.stubGlobal("fetch", respuesta({ obs: [buena(1), buena(2)], updatedAt: 5, runs: 7 }));
+    const r = await fetchServerStudy();
+    expect(r.error).toBeNull();
+    expect(r.study.obs).toHaveLength(2);
+    expect(r.updatedAt).toBe(5);
+    expect(r.runs).toBe(7);
+  });
+
+  it("un 404 no rompe la app, solo lo cuenta", async () => {
+    vi.stubGlobal("fetch", respuesta(null, false, 404));
+    const r = await fetchServerStudy();
+    expect(r.error).toBe("HTTP 404");
+    expect(r.study.obs).toEqual([]);
+  });
+
+  it("si la red falla devuelve vacío en vez de lanzar", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("sin red"); }));
+    const r = await fetchServerStudy();
+    expect(r.error).toBe("sin respuesta");
+    expect(analyze(r.study).verdict).toBe("SIN DATOS");
+  });
+
+  it("un JSON con basura se queda solo con lo válido", async () => {
+    vi.stubGlobal("fetch", respuesta({ obs: [buena(1), null, { id: 5 }, buena(2, { price: 0 })] }));
+    const r = await fetchServerStudy();
+    expect(r.study.obs).toHaveLength(1);
+  });
+
+  it("propaga el aborto al desmontar, sin tragárselo", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new DOMException("abortado", "AbortError");
+    }));
+    await expect(fetchServerStudy()).rejects.toThrow();
   });
 });

@@ -15,12 +15,23 @@
 // ============================================================
 import type { LiqObservation, LiqStudy } from "./liqstudy";
 
-/**
- * URL del registro. Se configura en Vercel como variable de entorno
- * `VITE_LIQSTUDY_URL`. Es una URL pública, no un secreto: puede ir en el
- * paquete del navegador sin problema.
- */
-export const SERVER_URL = (import.meta.env.VITE_LIQSTUDY_URL as string | undefined)?.trim() || "";
+/*
+  URL del registro.
+
+  Va escrita aquí en vez de depender solo de una variable de entorno, y es a
+  propósito: no es un secreto —apunta a un archivo público del repositorio— y
+  dejarla en la configuración del alojamiento la vuelve frágil. Se comprobó
+  que `build.env` de vercel.json NO se aplica cuando el paquete se construye
+  en local, así que un despliegue desde la línea de órdenes se quedaría sin
+  registro y sin avisar.
+
+  `VITE_LIQSTUDY_URL` sigue funcionando por encima, para quien bifurque el
+  proyecto y grabe su propio registro.
+*/
+const POR_DEFECTO = "https://raw.githubusercontent.com/manuelelgenio1/liqradars/main/data/liqstudy.json";
+
+export const SERVER_URL =
+  (import.meta.env.VITE_LIQSTUDY_URL as string | undefined)?.trim() || POR_DEFECTO;
 
 export interface ServerStudy {
   study: LiqStudy;
