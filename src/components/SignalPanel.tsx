@@ -3,7 +3,8 @@ import type { MarketApi } from "../hooks/useMarket";
 import type { SignalsApi } from "../hooks/useSignals";
 import * as f from "../lib/format";
 import { Card, SplitBar, Tag } from "./ui";
-import { costInR, costVerdict, ROUND_TRIP_COST_PCT } from "../lib/signals";
+import { costInR, costVerdict, MAX_BARS, ROUND_TRIP_COST_PCT, signalLife } from "../lib/signals";
+import { timeframeOf } from "../lib/types";
 
 /* ============================================================
    Señal en vivo.
@@ -60,8 +61,11 @@ export default function SignalPanel({ api, sig }: { api: MarketApi; sig: Signals
             >
               {abierta.side === "long" ? "LARGO" : "CORTO"}
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
-              abierta hace {f.ago(abierta.ts, ahora)}
+            <span
+              className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-dim)]"
+              title={`Nació el ${f.clockUTC(abierta.ts)} UTC`}
+            >
+              hace {f.ago(abierta.ts, ahora)}
             </span>
             <span className="tnum ml-auto text-[10px] font-bold text-[var(--color-bright)]">
               R:R {f.num(abierta.rr, 2)}
@@ -82,6 +86,41 @@ export default function SignalPanel({ api, sig }: { api: MarketApi; sig: Signals
               </div>
             ))}
           </div>
+
+          {/* ---- cuánto le queda ---- */}
+          {(() => {
+            const v = signalLife(abierta.ts, timeframeOf(abierta.timeframe).minutes, ahora);
+            const apurada = v.progress > 0.75;
+            const col = v.expired
+              ? "var(--color-dim)"
+              : apurada
+                ? "var(--color-warn)"
+                : "var(--color-muted)";
+            return (
+              <div className="mt-3">
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
+                    {v.expired ? "Vencida" : "Le queda"}
+                  </span>
+                  <span className="tnum font-mono text-[11px] font-bold" style={{ color: col }}>
+                    {v.expired ? "—" : f.countdown(v.remainingMs)}
+                  </span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${v.progress * 100}%`, background: col }}
+                  />
+                </div>
+                <p className="mt-1 font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
+                  Nació a las <b className="text-[var(--color-muted)]">{f.hhmmUTC(abierta.ts)}</b> UTC y vence a las{" "}
+                  <b className="text-[var(--color-muted)]">{f.hhmmUTC(v.expiresAt)}</b>: {MAX_BARS} velas de{" "}
+                  {abierta.timeframe}. Si para entonces no ha tocado stop ni objetivo, se cierra a mercado y cuenta
+                  igual en la bitácora — no se esconde.
+                </p>
+              </div>
+            );
+          })()}
 
           {(() => {
             const c = abierta.costR ?? costInR(abierta.entry, abierta.stop);

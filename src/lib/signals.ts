@@ -291,6 +291,55 @@ export function buildContraSignal(inp: SignalInputs, now: number, rand: () => nu
 /** Máximo de velas que una señal permanece viva antes de expirar. */
 export const MAX_BARS = 48;
 
+/*
+  VIDA DE UNA SEÑAL.
+
+  Una señal no vale para siempre: `evaluateSignal` la cierra a las 48 velas si
+  antes no tocó stop ni objetivo. Eso significa que su fecha de caducidad
+  depende de la temporalidad — 48 velas de 5 m son 4 horas; 48 diarias, casi
+  dos meses.
+
+  Saberlo importa al operar: una entrada de 5 m con 8 minutos de vida no es la
+  misma decisión que la misma entrada recién nacida, aunque los niveles sean
+  idénticos. Antes esto no se mostraba en ninguna parte.
+*/
+export interface SignalLife {
+  /** cuándo nació */
+  bornAt: number;
+  /** cuándo expira si no toca stop ni objetivo */
+  expiresAt: number;
+  /** duración total en ms */
+  totalMs: number;
+  /** ms transcurridos, nunca negativo */
+  elapsedMs: number;
+  /** ms restantes, nunca negativo */
+  remainingMs: number;
+  /** 0..1 de vida consumida */
+  progress: number;
+  expired: boolean;
+}
+
+/**
+ * Vida de una señal. `tfMinutes` son los minutos de SU temporalidad, no de la
+ * que se esté mirando: una señal de 5 m sigue caducando en 4 horas aunque
+ * tengas el gráfico en diario.
+ */
+export function signalLife(bornAt: number, tfMinutes: number, now: number): SignalLife {
+  const totalMs = MAX_BARS * tfMinutes * 60_000;
+  const expiresAt = bornAt + totalMs;
+  const elapsedMs = Math.max(0, now - bornAt);
+  const remainingMs = Math.max(0, expiresAt - now);
+  return {
+    bornAt,
+    expiresAt,
+    totalMs,
+    elapsedMs,
+    remainingMs,
+    progress: totalMs > 0 ? Math.min(1, elapsedMs / totalMs) : 1,
+    expired: remainingMs <= 0,
+  };
+}
+
 interface Resolution {
   outcome: Outcome;
   exitPrice: number;

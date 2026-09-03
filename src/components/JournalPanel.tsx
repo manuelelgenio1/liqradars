@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import type { SignalsApi } from "../hooks/useSignals";
+import { signalLife } from "../lib/signals";
 import type { Outcome, Stats } from "../lib/signals";
+import { timeframeOf } from "../lib/types";
 import * as f from "../lib/format";
 import { Card, Empty, Tag } from "./ui";
 
@@ -186,8 +188,33 @@ export default function JournalPanel({ api, sig }: { api: MarketApi; sig: Signal
                   {x.exitPrice != null && ` → ${f.price(x.exitPrice, api.spec.decimals)}`}
                   {x.ambiguous && <span className="ml-1 text-[var(--color-warn)]" title="La vela contenía stop y objetivo: contada como pérdida">◆</span>}
                 </span>
-                <span className="font-mono text-[8px] uppercase tracking-wider" style={{ color: om.color }}>
-                  {x.outcome === "abierta" ? f.ago(x.ts, now) : om.label}
+                {/*
+                  Para una señal abierta, lo útil no es cuánto lleva sino
+                  cuánto le queda: a las 48 velas se cierra a mercado. Se
+                  muestra en ámbar cuando ha consumido más de tres cuartos de
+                  su vida.
+                */}
+                <span
+                  className="font-mono text-[8px] uppercase tracking-wider"
+                  style={{
+                    color:
+                      x.outcome === "abierta"
+                        ? signalLife(x.ts, timeframeOf(x.timeframe).minutes, now).progress > 0.75
+                          ? "var(--color-warn)"
+                          : om.color
+                        : om.color,
+                  }}
+                  title={
+                    x.outcome === "abierta"
+                      ? `Nació a las ${f.hhmmUTC(x.ts)} UTC · vence a las ${f.hhmmUTC(
+                          signalLife(x.ts, timeframeOf(x.timeframe).minutes, now).expiresAt
+                        )}`
+                      : `Nació a las ${f.hhmmUTC(x.ts)} UTC${x.resolvedTs ? ` · cerrada a las ${f.hhmmUTC(x.resolvedTs)}` : ""}`
+                  }
+                >
+                  {x.outcome === "abierta"
+                    ? `queda ${f.ago(now, signalLife(x.ts, timeframeOf(x.timeframe).minutes, now).expiresAt)}`
+                    : om.label}
                 </span>
                 <span
                   className="tnum text-right text-[10px] font-bold"

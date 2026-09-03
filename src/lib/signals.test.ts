@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_BARS, buildContraSignal, buildSignal, computeStats, costInR, costVerdict, evaluateSignal, scoreSignal, type Signal, type SignalInputs } from "./signals";
+import { MAX_BARS, buildContraSignal, buildSignal, computeStats, costInR, costVerdict, evaluateSignal, scoreSignal, signalLife, type Signal, type SignalInputs } from "./signals";
 import { computeAll, configFor } from "./indicators";
 import type { Candle } from "./types";
 
@@ -398,5 +398,56 @@ describe("el veredicto exige significación, no solo diferencia", () => {
 
   it("con una sola operación no inventa una t", () => {
     expect(Number.isFinite(computeStats([op(1, 1, 0)]).tStat)).toBe(false);
+  });
+});
+
+describe("vida de una señal", () => {
+  /*
+    Una señal caduca a las 48 velas de SU temporalidad. Sin esto, el panel
+    enseñaba niveles sin decir si la señal nació hace un minuto o si le quedan
+    dos; y no es la misma decisión aunque los precios coincidan.
+  */
+  const T = 1_800_000_000_000;
+
+  it("la duración depende de la temporalidad, no del reloj", () => {
+    expect(signalLife(T, 5, T).totalMs).toBe(MAX_BARS * 5 * 60_000); // 4 h
+    expect(signalLife(T, 1440, T).totalMs).toBe(MAX_BARS * 1440 * 60_000); // 48 días
+  });
+
+  it("recién nacida: todo por delante", () => {
+    const v = signalLife(T, 60, T);
+    expect(v.elapsedMs).toBe(0);
+    expect(v.progress).toBe(0);
+    expect(v.remainingMs).toBe(v.totalMs);
+    expect(v.expired).toBe(false);
+  });
+
+  it("a mitad de camino el progreso es 0,5", () => {
+    const v = signalLife(T, 60, T + MAX_BARS * 60 * 60_000 / 2);
+    expect(v.progress).toBeCloseTo(0.5, 6);
+  });
+
+  it("pasada la fecha, ni tiempo negativo ni progreso mayor que uno", () => {
+    const v = signalLife(T, 5, T + MAX_BARS * 5 * 60_000 * 3);
+    expect(v.remainingMs).toBe(0);
+    expect(v.progress).toBe(1);
+    expect(v.expired).toBe(true);
+  });
+
+  it("un reloj atrasado no produce tiempos negativos", () => {
+    // pasa de verdad: relojes desajustados, o datos de otra zona horaria
+    const v = signalLife(T, 60, T - 10 * 60_000);
+    expect(v.elapsedMs).toBe(0);
+    expect(v.remainingMs).toBeGreaterThan(v.totalMs - 1);
+  });
+
+  it("transcurrido más restante suma el total mientras viva", () => {
+    const v = signalLife(T, 15, T + 1000 * 60);
+    expect(v.elapsedMs + v.remainingMs).toBe(v.totalMs);
+  });
+
+  it("la caducidad es el nacimiento más la duración", () => {
+    const v = signalLife(T, 240, T);
+    expect(v.expiresAt).toBe(T + MAX_BARS * 240 * 60_000);
   });
 });
