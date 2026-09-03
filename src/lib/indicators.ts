@@ -32,6 +32,7 @@ const PRESETS: Record<string, IndicatorConfig> = {
   "1m": { emaFast: 9, emaSlow: 21, emaTrend: 50, macd: [9, 21, 6], rsi: 9, atr: 8, supertrendMult: 1.6, adx: 12, adxThreshold: 22 },
   "5m": { emaFast: 12, emaSlow: 26, emaTrend: 60, macd: [10, 24, 7], rsi: 11, atr: 10, supertrendMult: 2.0, adx: 14, adxThreshold: 23 },
   "15m": { emaFast: 14, emaSlow: 30, emaTrend: 70, macd: [11, 26, 8], rsi: 12, atr: 10, supertrendMult: 2.2, adx: 14, adxThreshold: 24 },
+  "30m": { emaFast: 16, emaSlow: 34, emaTrend: 80, macd: [12, 26, 9], rsi: 13, atr: 11, supertrendMult: 2.4, adx: 14, adxThreshold: 24 },
   "1H": { emaFast: 20, emaSlow: 50, emaTrend: 100, macd: [12, 26, 9], rsi: 14, atr: 11, supertrendMult: 2.6, adx: 14, adxThreshold: 25 },
   "4H": { emaFast: 21, emaSlow: 55, emaTrend: 120, macd: [19, 39, 9], rsi: 14, atr: 12, supertrendMult: 3.0, adx: 14, adxThreshold: 25 },
   "1D": { emaFast: 21, emaSlow: 55, emaTrend: 120, macd: [12, 26, 9], rsi: 14, atr: 12, supertrendMult: 3.0, adx: 14, adxThreshold: 25 },

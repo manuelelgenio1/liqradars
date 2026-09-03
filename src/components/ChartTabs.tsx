@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { MarketApi } from "../hooks/useMarket";
 import PriceChart from "./PriceChart";
 import TradingViewChart from "./TradingViewChart";
+import TradingPanel from "./TradingPanel";
+import { useTradingDesk } from "../hooks/useTradingDesk";
 import * as storage from "./../lib/storage";
 
 /* ============================================================
@@ -23,11 +25,15 @@ import * as storage from "./../lib/storage";
    segundos y perdería los dibujos que hubieras hecho.
    ============================================================ */
 
-type Tab = "tv" | "liq";
+type Tab = "tv" | "liq" | "trade";
 const LS_KEY = "liqradar:chartTab";
 
 export default function ChartTabs({ api }: { api: MarketApi }) {
-  const [tab, setTab] = useState<Tab>(() => (storage.read<Tab>(LS_KEY, "liq") === "tv" ? "tv" : "liq"));
+  const guardada = storage.read<Tab>(LS_KEY, "trade");
+  const [tab, setTab] = useState<Tab>(
+    guardada === "tv" || guardada === "liq" || guardada === "trade" ? guardada : "trade"
+  );
+  const desk = useTradingDesk(api.spec.binance, api.price);
   // Una vez abierta, la pestaña de TradingView no se desmonta: conserva zoom y dibujos.
   const [tvVisitada, setTvVisitada] = useState(tab === "tv");
 
@@ -65,6 +71,7 @@ export default function ChartTabs({ api }: { api: MarketApi }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-end gap-1 border-b border-[var(--color-line)] px-1">
+        {boton("trade", "Operar", "niveles y coste en 6 marcos")}
         {boton("liq", "Liquidez", "liquidaciones y clústeres reales")}
         {boton("tv", "TradingView", "indicadores y dibujo")}
 
@@ -89,7 +96,12 @@ export default function ChartTabs({ api }: { api: MarketApi }) {
         que sea él quien decida la altura del contenedor.
       */}
       <div className="relative mt-2 flex-1">
-        <div className={tab === "liq" ? "" : "invisible pointer-events-none absolute inset-0"} aria-hidden={tab !== "liq"}>
+        {/* La mesa no lleva lienzo, así que se puede montar y desmontar sin coste. */}
+        {tab === "trade" && <TradingPanel api={api} desk={desk} />}
+        <div
+          className={tab === "liq" ? "" : "invisible pointer-events-none absolute inset-0"}
+          aria-hidden={tab !== "liq"}
+        >
           <PriceChart api={api} />
         </div>
         {tvVisitada && (

@@ -97,8 +97,42 @@ export const SYMBOLS: SymbolSpec[] = [
   { key: "DOGEUSDT", base: "DOGE", name: "Dogecoin", decimals: 5, binance: "DOGEUSDT", okx: "DOGE-USDT-SWAP", bybit: "DOGEUSDT" },
 ];
 
-export const symbolOf = (key: string): SymbolSpec =>
-  SYMBOLS.find((s) => s.key === key) ?? SYMBOLS[0];
+/*
+  Los seis de `SYMBOLS` son los que tienen mapeo en los tres exchanges, así que
+  son los únicos con liquidaciones de OKX y Bybit.
+
+  Pero la mesa de operaciones trabaja con los 20 perpetuos de más volumen, y
+  esos salen del ranking de Binance en vivo. Para ellos se sintetiza un spec:
+  precio, velas, indicadores y niveles funcionan igual —todo eso sale de
+  Binance— y las liquidaciones simplemente no aparecen, porque no hay a qué
+  suscribirse.
+
+  Antes esta función devolvía `SYMBOLS[0]` para cualquier clave desconocida.
+  Eso significaba que pulsar un par del escáner te cambiaba a BTC EN SILENCIO,
+  con el gráfico y los niveles de BTC mientras la lista decía otro nombre. Un
+  fallback que se disfraza de éxito es peor que un error.
+*/
+export const isCurated = (key: string): boolean => SYMBOLS.some((s) => s.key === key);
+
+export const symbolOf = (key: string): SymbolSpec => {
+  const conocido = SYMBOLS.find((s) => s.key === key);
+  if (conocido) return conocido;
+  if (!/^[A-Z0-9]{2,20}USDT$/.test(key)) return SYMBOLS[0]; // basura: se cae al de siempre
+  const base = key.replace(/USDT$/, "");
+  return {
+    key,
+    base,
+    name: base,
+    // Sin precio no se pueden decidir los decimales aquí; los paneles que
+    // muestran precios usan `decimalsFor(precio)` cuando les importa.
+    decimals: 4,
+    binance: key,
+    // Vacíos a propósito: no hay mapeo verificado en estos exchanges, y
+    // adivinarlo produciría suscripciones a instrumentos inexistentes.
+    okx: "",
+    bybit: "",
+  };
+};
 
 export interface Timeframe {
   key: string;
@@ -111,6 +145,7 @@ export const TIMEFRAMES: Timeframe[] = [
   { key: "1m", minutes: 1, binance: "1m", label: "1 min" },
   { key: "5m", minutes: 5, binance: "5m", label: "5 min" },
   { key: "15m", minutes: 15, binance: "15m", label: "15 min" },
+  { key: "30m", minutes: 30, binance: "30m", label: "30 min" },
   { key: "1H", minutes: 60, binance: "1h", label: "1 hora" },
   { key: "4H", minutes: 240, binance: "4h", label: "4 horas" },
   { key: "1D", minutes: 1440, binance: "1d", label: "1 día" },
