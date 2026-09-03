@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLatest } from "./useLatest";
 import type { MarketApi } from "./useMarket";
 import {
   analyze,
@@ -43,9 +44,9 @@ export function useLiqStudy(api: MarketApi): LiqStudyApi {
 
   // Los datos vivos cambian cada pocos cientos de ms. Si entraran como
   // dependencias del efecto, el temporizador se destruiría y volvería a
-  // crearse sin llegar a disparar nunca.
-  const ref = useRef({ api, study });
-  ref.current = { api, study };
+  // crearse sin llegar a disparar nunca. `useLatest` los deja accesibles sin
+  // escribir en el ref durante el render.
+  const ref = useLatest({ api, study });
 
   const recent = useMemo(() => {
     const desde = Date.now() - BURST_WINDOW_MS;
@@ -59,8 +60,7 @@ export function useLiqStudy(api: MarketApi): LiqStudyApi {
     return { long, short };
   }, [api.liqEvents]);
 
-  const recentRef = useRef(recent);
-  recentRef.current = recent;
+  const recentRef = useLatest(recent);
 
   useEffect(() => {
     const tick = () => {

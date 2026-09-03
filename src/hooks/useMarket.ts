@@ -7,6 +7,7 @@
 //  · Los sockets detectan el fallo "abierto pero mudo" y se recuperan solos.
 // ============================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLatest } from "./useLatest";
 import * as binance from "../lib/sources/binance";
 import * as okx from "../lib/sources/okx";
 import * as bybit from "../lib/sources/bybit";
@@ -152,16 +153,22 @@ export function useMarket() {
     bybitWs: "esperando",
   });
 
-  const storeRef = useRef(store);
-  storeRef.current = store;
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
-  const venueRef = useRef(venue);
-  venueRef.current = venue;
-  const venuePrefRef = useRef(venuePref);
-  venuePrefRef.current = venuePref;
-  const symbolRef = useRef(symbol);
-  symbolRef.current = symbol;
+  /*
+    Estos cinco los leen sockets y temporizadores que se montan una sola vez.
+    Meterlos en dependencias reabriría las conexiones cada vez que cambian, y
+    aquí `store` cambia con cada liquidación que llega.
+
+    `useLatest` escribe dentro de un efecto en lugar de durante el render: en
+    modo concurrente React puede descartar un render a medias, y una escritura
+    hecha en ese intento quedaría aplicada aunque nunca llegara a pantalla.
+  */
+  // `storeRef` y `symbolRef` existían aquí y NO los leía nadie. La asignación
+  // durante el render contaba como uso para TypeScript, así que
+  // `noUnusedLocals` nunca los delató: se mantenían en cada render para nada.
+  // Se ven al quitar la asignación, que es una ventaja lateral del cambio.
+  const pausedRef = useLatest(paused);
+  const venueRef = useLatest(venue);
+  const venuePrefRef = useLatest(venuePref);
 
   // buffer de liquidaciones: se vuelca a intervalo fijo para no re-renderizar
   // en cada evento suelto

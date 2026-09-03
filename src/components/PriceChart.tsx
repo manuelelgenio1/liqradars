@@ -79,6 +79,16 @@ export default function PriceChart({ api }: { api: MarketApi }) {
   const [visible, setVisible] = useState(90);
   const [offset, setOffset] = useState(0);
   const drag = useRef<{ x: number; startOffset: number } | null>(null);
+  /*
+    El ref guarda los datos del arrastre; el estado solo dice SI se está
+    arrastrando, porque de eso depende lo que se pinta.
+
+    Antes el cursor se decidía leyendo `drag.current` durante el render, y eso
+    no funcionaba: cambiar un ref no repinta nada, así que el cursor seguía en
+    "cruz" al empezar a arrastrar y solo pasaba a "agarrando" de rebote, en el
+    siguiente repintado que provocara el precio. Con estado cambia al instante.
+  */
+  const [dragging, setDragging] = useState(false);
   const pinch = useRef<{ dist: number; visible: number; anchor: number } | null>(null);
 
   const { snap, indicators, price, spec, tfSpec, liqEvents, liqLevels } = api;
@@ -599,6 +609,7 @@ export default function PriceChart({ api }: { api: MarketApi }) {
     };
     const onUp = () => {
       drag.current = null;
+      setDragging(false);
       document.body.style.cursor = "";
     };
     window.addEventListener("mousemove", onMove);
@@ -656,13 +667,14 @@ export default function PriceChart({ api }: { api: MarketApi }) {
                 width: "100%",
                 height: fullscreen ? "100%" : size.h,
                 display: "block",
-                cursor: drag.current ? "grabbing" : "crosshair",
+                cursor: dragging ? "grabbing" : "crosshair",
                 touchAction: "pan-y",
               }}
               onMouseMove={onMouseMove}
               onMouseLeave={() => setHover(null)}
               onMouseDown={(e) => {
                 drag.current = { x: e.clientX, startOffset: offset };
+                setDragging(true);
                 document.body.style.cursor = "grabbing";
               }}
               onDoubleClick={() => {
@@ -683,6 +695,7 @@ export default function PriceChart({ api }: { api: MarketApi }) {
                   };
                 } else {
                   drag.current = { x: e.touches[0].clientX, startOffset: offset };
+                  setDragging(true);
                 }
               }}
               onTouchMove={(e) => {
@@ -704,6 +717,7 @@ export default function PriceChart({ api }: { api: MarketApi }) {
               onTouchEnd={() => {
                 pinch.current = null;
                 drag.current = null;
+                setDragging(false);
               }}
             />
 

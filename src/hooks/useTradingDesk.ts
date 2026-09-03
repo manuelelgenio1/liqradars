@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLatest } from "./useLatest";
 import * as binance from "../lib/sources/binance";
 import { alignment, computeLevels, type Alignment, type TradeLevels } from "../lib/levels";
 import { fetchUniverse, type UniverseEntry } from "../lib/universe";
@@ -142,10 +143,10 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   }, []);
 
   // ---------- escáner ----------
-  const universeRef = useRef(universe);
-  universeRef.current = universe;
-  const scanTfRef = useRef(scanTf);
-  scanTfRef.current = scanTf;
+  // Sin refs, `runScan` se recrearía en cada cambio del universo y el botón
+  // perdería su identidad; con ellos el callback es estable.
+  const universeRef = useLatest(universe);
+  const scanTfRef = useLatest(scanTf);
 
   const runScan = useCallback(() => {
     const lista = universeRef.current;

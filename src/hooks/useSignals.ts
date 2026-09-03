@@ -5,7 +5,8 @@
 // reales que van llegando. Nada se reescribe: una señal resuelta queda como
 // quedó, gane o pierda.
 // ============================================================
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLatest } from "./useLatest";
 import {
   buildSignal,
   computeStats,
@@ -51,8 +52,7 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
     typeof window === "undefined" ? [] : load()
   );
   const [autoEnabled, setAutoEnabledState] = useState<boolean>(() => read<boolean>("liqradar:autosig", true));
-  const signalsRef = useRef(signals);
-  signalsRef.current = signals;
+  const signalsRef = useLatest(signals);
 
   const setAutoEnabled = useCallback((v: boolean) => {
     setAutoEnabledState(v);
@@ -103,16 +103,20 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
     [inputs]
   );
 
-  // Los ingredientes cambian cada vez que se mueve el precio o el libro. Si el
-  // efecto de generación dependiera de ellos, destruiría y recrearía su
-  // temporizador cada segundo y NUNCA llegaría a cumplir el intervalo: no se
-  // registraría ni una señal. Van por ref, y el efecto se monta una sola vez.
-  const inputsRef = useRef(inputs);
-  inputsRef.current = inputs;
-  const pausedRef = useRef(api.paused);
-  pausedRef.current = api.paused;
-  const autoRef = useRef(autoEnabled);
-  autoRef.current = autoEnabled;
+  /*
+    Los ingredientes cambian cada vez que se mueve el precio o el libro. Si el
+    efecto de generación dependiera de ellos, destruiría y recrearía su
+    temporizador cada segundo y NUNCA llegaría a cumplir el intervalo: no se
+    registraría ni una señal. Ya pasó, y no se veía en pantalla — la app
+    funcionaba y sencillamente no generaba nada.
+
+    Van por ref, y el efecto se monta una sola vez. `useLatest` hace la
+    escritura dentro de un efecto en vez de durante el render, que es la forma
+    que React considera correcta y la única segura en modo concurrente.
+  */
+  const inputsRef = useLatest(inputs);
+  const pausedRef = useLatest(api.paused);
+  const autoRef = useLatest(autoEnabled);
 
   // ---------- generación automática ----------
   useEffect(() => {
@@ -139,10 +143,8 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
   // ---------- resolución contra velas reales ----------
   // Mismo motivo que arriba: las velas se refrescan constantemente, así que
   // van por ref para que el temporizador sobreviva.
-  const candlesRef = useRef(api.snap.warm.length ? api.snap.warm : api.snap.candles);
-  candlesRef.current = api.snap.warm.length ? api.snap.warm : api.snap.candles;
-  const symbolRef = useRef(api.symbol);
-  symbolRef.current = api.symbol;
+  const candlesRef = useLatest(api.snap.warm.length ? api.snap.warm : api.snap.candles);
+  const symbolRef = useLatest(api.symbol);
 
   useEffect(() => {
     const id = window.setInterval(() => {
