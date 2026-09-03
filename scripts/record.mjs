@@ -50,6 +50,21 @@ const COOLDOWN_MS = 30 * 60_000;
 const HORIZON_MS = 60 * 60_000;
 const MAX_OBS = 5000;
 
+/*
+  LATIDO.
+
+  Si solo se guardara cuando hay datos nuevos, un grabador muerto y un mercado
+  tranquilo se verían EXACTAMENTE IGUAL desde fuera: el mismo archivo, la misma
+  fecha. No se podría distinguir "no ha pasado nada" de "lleva días roto", que
+  es la clase de fallo silencioso que esta herramienta existe para no cometer.
+
+  Así que, aunque no haya nada nuevo, cada seis horas se guarda igual solo para
+  dejar constancia de que sigue vivo. Son cuatro commits al día en el peor caso
+  —nada— y a cambio la app puede decir con certeza cuándo se comprobó por
+  última vez, que es distinto de cuándo entró el último dato.
+*/
+const LATIDO_MS = 6 * 60 * 60_000;
+
 const OKX = "https://www.okx.com/api/v5";
 const BINANCE = "https://fapi.binance.com/fapi/v1";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -151,15 +166,16 @@ function cargar() {
     const j = JSON.parse(readFileSync(ARCHIVO, "utf8"));
     return {
       obs: Array.isArray(j.obs) ? j.obs : [],
-      updatedAt: j.updatedAt ?? 0,
+      updatedAt: Number(j.updatedAt) || 0,
+      lastDataAt: Number(j.lastDataAt) || 0,
       runs: Number(j.runs) || 0,
     };
   } catch {
-    return { obs: [], updatedAt: 0, runs: 0 };
+    return { obs: [], updatedAt: 0, lastDataAt: 0, runs: 0 };
   }
 }
 
-function guardar(estado) {
+function guardar(estado, huboDatos) {
   mkdirSync(dirname(ARCHIVO), { recursive: true });
   // orden estable: reduce el ruido del diff en git y hace el historial legible
   const obs = [...estado.obs].sort((a, b) => b.ts - a.ts).slice(0, MAX_OBS);
@@ -173,7 +189,11 @@ function guardar(estado) {
         windowMs: VENTANA_MS,
         cooldownMs: COOLDOWN_MS,
         horizonMs: HORIZON_MS,
+        // cuándo se comprobó por última vez (aunque no hubiera nada)
         updatedAt: Date.now(),
+        // cuándo entró el último dato de verdad. Si se separan mucho, el
+        // mercado está tranquilo; si updatedAt se congela, es que algo falla.
+        lastDataAt: huboDatos ? Date.now() : estado.lastDataAt,
         runs: estado.runs + 1,
         obs,
       },
@@ -282,14 +302,20 @@ async function main() {
     await sleep(250); // no castigar las APIs públicas
   }
 
-  guardar(estado);
+  const huboDatos = nuevos + cerrados > 0;
+  // Se guarda si hay datos nuevos o si toca dejar constancia de que sigue vivo.
+  const tocaLatido = Date.now() - estado.updatedAt >= LATIDO_MS;
+  guardar(estado, huboDatos);
   const cerradasAhora = estado.obs.filter((o) => o.fwdPct !== undefined && o.fwdPct !== null).length;
   console.log(
     `\n${previas} → ${estado.obs.length} observaciones ` +
     `(+${nuevos} nuevas, +${cerrados} cerradas) · ` +
     `${cerradasAhora} cerradas en total, ${estado.obs.length - cerradasAhora} esperando`
   );
-  console.log(`ejecución nº ${estado.runs + 1}`);
+  console.log(
+    `ejecución nº ${estado.runs + 1} · ` +
+    (huboDatos ? "se guarda" : tocaLatido ? "sin novedad, se guarda igual (latido)" : "sin novedad, no se guarda")
+  );
 
   // Lo usa el flujo de trabajo para no hacer un commit vacío.
   if (process.env.GITHUB_OUTPUT) {

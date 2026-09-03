@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emptyServer, fetchServerStudy, SERVER_URL } from "./liqserver";
+import { emptyServer, fetchServerStudy, isStale, SERVER_URL, STALE_MS } from "./liqserver";
 import { analyze } from "./liqstudy";
 
 /*
@@ -145,5 +145,52 @@ describe("fallos de red", () => {
       throw new DOMException("abortado", "AbortError");
     }));
     await expect(fetchServerStudy()).rejects.toThrow();
+  });
+});
+
+describe("grabador parado", () => {
+  /*
+    El fallo que esto vigila: un grabador muerto y un mercado tranquilo se ven
+    igual desde fuera —el mismo archivo, la misma fecha— y la app enseñaría un
+    registro congelado como si estuviera vivo. Por eso el grabador deja
+    constancia cada seis horas aunque no encuentre nada, y aquí se comprueba
+    que ese silencio se detecta.
+  */
+  const AHORA = 1_800_000_000_000;
+  const con = (updatedAt: number) => ({ ...emptyServer(), updatedAt });
+
+  it("recién comprobado no es sospechoso", () => {
+    expect(isStale(con(AHORA - 60_000), AHORA)).toBe(false);
+  });
+
+  it("tolera que pase un latido sin novedad", () => {
+    // seis horas es lo normal en mercado tranquilo: no debe alarmar
+    expect(isStale(con(AHORA - 6.5 * 60 * 60_000), AHORA)).toBe(false);
+  });
+
+  it("pasado el margen, avisa", () => {
+    expect(isStale(con(AHORA - STALE_MS - 1), AHORA)).toBe(true);
+  });
+
+  it("no confunde un fallo de red con un grabador parado", () => {
+    const s = { ...con(AHORA - STALE_MS - 1), error: "sin respuesta" };
+    expect(isStale(s, AHORA)).toBe(false);
+  });
+
+  it("un registro que nunca se ha leído no se marca como parado", () => {
+    expect(isStale(emptyServer(), AHORA)).toBe(false);
+  });
+
+  it("lastDataAt se cae a updatedAt en registros antiguos que no lo traen", async () => {
+    vi.stubGlobal("fetch", respuesta({ obs: [buena(1)], updatedAt: 999 }));
+    const r = await fetchServerStudy();
+    expect(r.lastDataAt).toBe(999);
+  });
+
+  it("distingue comprobado de último dato", async () => {
+    vi.stubGlobal("fetch", respuesta({ obs: [buena(1)], updatedAt: 900, lastDataAt: 100 }));
+    const r = await fetchServerStudy();
+    expect(r.updatedAt).toBe(900);
+    expect(r.lastDataAt).toBe(100);
   });
 });

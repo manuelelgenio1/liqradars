@@ -35,7 +35,10 @@ export const SERVER_URL =
 
 export interface ServerStudy {
   study: LiqStudy;
+  /** última vez que el grabador COMPROBÓ, haya encontrado algo o no */
   updatedAt: number;
+  /** última vez que entró un dato de verdad */
+  lastDataAt: number;
   runs: number;
   /** null mientras no se ha intentado; string con el motivo si falló */
   error: string | null;
@@ -44,9 +47,21 @@ export interface ServerStudy {
 export const emptyServer = (): ServerStudy => ({
   study: { obs: [], lastBurst: {} },
   updatedAt: 0,
+  lastDataAt: 0,
   runs: 0,
   error: null,
 });
+
+/*
+  El grabador deja constancia cada seis horas como mucho, aunque no encuentre
+  nada. Si `updatedAt` se queda más atrás que eso con holgura, es que dejó de
+  correr — y hay que decirlo, porque un registro congelado que parece vivo es
+  peor que no tener registro.
+*/
+export const STALE_MS = 9 * 60 * 60_000;
+
+export const isStale = (s: ServerStudy, now: number): boolean =>
+  !s.error && s.updatedAt > 0 && now - s.updatedAt > STALE_MS;
 
 /** Descarta cualquier fila que no cuadre. Un registro corrupto no debe contaminar el análisis. */
 function sane(o: unknown): o is LiqObservation {
@@ -70,11 +85,19 @@ export async function fetchServerStudy(signal?: AbortSignal): Promise<ServerStud
   try {
     const r = await fetch(SERVER_URL, { signal, cache: "no-store" });
     if (!r.ok) return { ...emptyServer(), error: `HTTP ${r.status}` };
-    const j = (await r.json()) as { obs?: unknown[]; updatedAt?: number; runs?: number };
+    const j = (await r.json()) as {
+      obs?: unknown[];
+      updatedAt?: number;
+      lastDataAt?: number;
+      runs?: number;
+    };
     const obs = Array.isArray(j.obs) ? j.obs.filter(sane) : [];
+    const updatedAt = Number(j.updatedAt) || 0;
     return {
       study: { obs, lastBurst: {} },
-      updatedAt: Number(j.updatedAt) || 0,
+      updatedAt,
+      // registros antiguos no traen lastDataAt: se cae a updatedAt
+      lastDataAt: Number(j.lastDataAt) || updatedAt,
       runs: Number(j.runs) || 0,
       error: null,
     };

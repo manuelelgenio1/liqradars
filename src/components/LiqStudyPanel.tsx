@@ -1,7 +1,7 @@
 import type { MarketApi } from "../hooks/useMarket";
 import type { LiqStudyApi } from "../hooks/useLiqStudy";
 import { BURST_USD, HORIZON_MS, MIN_OBS, type SideStat } from "../lib/liqstudy";
-import { SERVER_URL } from "../lib/liqserver";
+import { isStale, SERVER_URL } from "../lib/liqserver";
 import { ROUND_TRIP_COST_PCT } from "../lib/signals";
 import * as f from "../lib/format";
 import { Card, Empty, Tag } from "./ui";
@@ -70,6 +70,8 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
   const grabando = api.liqTotals.hasCompleteSource;
 
   // El de servidor manda mientras esté disponible; si no, se cae al local.
+  const ahora = Date.now();
+  const congelado = isStale(server, ahora);
   const servidorVivo = !!SERVER_URL && !server.error;
   const principal = servidorVivo ? serverReport : report;
 
@@ -81,9 +83,8 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
   const tono =
     principal.verdict === "VENTAJA" ? "real" : principal.verdict === "SIN VENTAJA" ? "partial" : "none";
 
-  const desde = server.updatedAt
-    ? `hace ${f.ago(server.updatedAt, Date.now())}`
-    : "";
+  const comprobado = server.updatedAt ? `hace ${f.ago(server.updatedAt, ahora)}` : "—";
+  const ultimoDato = server.lastDataAt ? `hace ${f.ago(server.lastDataAt, ahora)}` : "—";
 
   return (
     <Card
@@ -94,8 +95,8 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
           : `registro hacia delante · horizonte ${HORIZON_MS / 60_000} min`
       }
       right={
-        <Tag kind={servidorVivo ? "real" : grabando ? "partial" : "none"}>
-          {servidorVivo ? "servidor" : grabando ? "solo esta pestaña" : "sin fuente"}
+        <Tag kind={congelado ? "none" : servidorVivo ? "real" : grabando ? "partial" : "none"}>
+          {congelado ? "servidor parado" : servidorVivo ? "servidor" : grabando ? "solo esta pestaña" : "sin fuente"}
         </Tag>
       }
       delay={280}
@@ -183,8 +184,20 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
         <p className="mt-2 font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
           {servidorVivo ? (
             <>
-              <b className="text-[var(--color-up)]">Servidor</b> · {server.study.obs.length} anotadas, actualizado{" "}
-              {desde}. Corre solo cada hora, así que la muestra no depende de cuándo mires — por eso manda.
+              <b style={{ color: congelado ? "var(--color-warn)" : "var(--color-up)" }}>Servidor</b> ·{" "}
+              {server.study.obs.length} anotadas · comprobado {comprobado} · último dato {ultimoDato}.
+              {congelado ? (
+                <>
+                  {" "}
+                  <b className="text-[var(--color-warn)]">
+                    Lleva demasiado sin dar señales de vida: el grabador puede estar parado.
+                  </b>{" "}
+                  Deja constancia cada seis horas aunque no encuentre nada, así que este silencio no es de un mercado
+                  tranquilo.
+                </>
+              ) : (
+                <> Corre solo cada hora, así que la muestra no depende de cuándo mires — por eso manda.</>
+              )}
               {study.obs.length > 0 && (
                 <>
                   {" "}Esta pestaña lleva otras {study.obs.length} por su cuenta, que se cuentan aparte: ve tres
