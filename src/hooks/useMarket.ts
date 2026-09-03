@@ -47,6 +47,8 @@ export interface SourceHealth {
   binanceRest: Health;
   binanceWs: Health;
   okxWs: Health;
+  /** backfill histórico de liquidaciones: si falla, el mapa arranca vacío */
+  okxRest: Health;
   bybitWs: Health;
 }
 
@@ -146,6 +148,7 @@ export function useMarket() {
     binanceRest: "esperando",
     binanceWs: "esperando",
     okxWs: "esperando",
+    okxRest: "esperando",
     bybitWs: "esperando",
   });
 
@@ -174,7 +177,10 @@ export function useMarket() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    (async () => {
+    // `void`: la función ya trata sus propios errores dentro. Marcarlo evita
+    // que un `throw` añadido más adelante se convierta en un rechazo perdido
+    // sin que nadie se entere.
+    void (async () => {
       try {
         const warm = await binance.fetchCandles(spec.binance, tfSpec.binance, WARMUP, venue);
         if (cancelled) return;
@@ -404,10 +410,27 @@ export function useMarket() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const past = await okx.fetchLiquidationHistory(symbol, 3);
-      if (cancelled || !past.length) return;
+      /*
+        12 páginas, no 3.
+
+        El almacén guarda 24 h (WINDOW_MS) y hasta 4.000 eventos, pero el
+        backfill traía 3 páginas... que con la paginación rota eran en realidad
+        una sola: ~100 eventos, 6 minutos de historial para un mapa diseñado
+        para un día. Con `after` arreglado, 12 páginas dan ~1.200 eventos y
+        23 h — que es justo la ventana del almacén, y cabe de sobra en su
+        límite.
+      */
+      const past = await okx.fetchLiquidationHistory(symbol, 12);
+      if (cancelled) return;
+      // Cero eventos no es un fallo de red, pero tampoco es un mapa poblado:
+      // se distingue, porque "vacío" y "roto" se arreglan de formas distintas.
+      setHealth((h) => ({ ...h, okxRest: past.length ? "viva" : "degradada" }));
+      if (!past.length) return;
       setStore((s) => addEvents(s, past));
-    })();
+    })().catch(() => {
+      // Sin esto el fallo se pierde y el mapa se queda vacío sin decir por qué.
+      if (!cancelled) setHealth((h) => ({ ...h, okxRest: "caida" }));
+    });
     return () => {
       cancelled = true;
     };

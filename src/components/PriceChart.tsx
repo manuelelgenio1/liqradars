@@ -160,10 +160,18 @@ export default function PriceChart({ api }: { api: MarketApi }) {
     [liqEvents, view.t0, view.t1]
   );
 
-  // CVD acumulado sobre las velas (delta real de taker)
+  // CVD acumulado sobre las velas (delta real de taker).
+  // Se acumula en un bucle explícito en vez de con una asignación dentro de
+  // `map`: hace lo mismo, pero un `map` que muta una variable de fuera es un
+  // efecto secundario disfrazado de transformación, y se lee peor.
   const cvd = useMemo(() => {
+    const out = new Array<number>(candles.length);
     let acc = 0;
-    return candles.map((k) => (acc += k.delta));
+    for (let i = 0; i < candles.length; i++) {
+      acc += candles[i].delta;
+      out[i] = acc;
+    }
+    return out;
   }, [candles]);
 
   // ---------- dibujo ----------

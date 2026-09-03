@@ -37,7 +37,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Tipos y tests
+      - name: Tipos, linter y tests
+        # `npm run check` ya encadena typecheck + lint + test.
         run: npm run check
 
       - name: Que el paquete siga construyéndose

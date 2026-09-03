@@ -131,8 +131,22 @@ export async function fetchLiquidationHistory(symbolKey: string, pages = 3): Pro
   if (!instId) return [];
   const family = instId.split("-").slice(0, 2).join("-");
   const out: Liquidation[] = [];
-  let before: string | undefined;
+  let after: string | undefined;
   let seq = 0;
+  /*
+    Se pagina con `after` (registros MÁS ANTIGUOS que ese instante), no con
+    `before`.
+
+    Comprobado contra la API real sobre BTC: con `before` las 25 páginas
+    devuelven SIEMPRE la misma —100 eventos, 9 horas— mientras que con `after`
+    salen 1.266 eventos y 23,6 horas. Con `before`, este backfill pedía tres
+    páginas, recibía tres veces lo mismo y creía haber paginado: el mapa de
+    liquidez arrancaba con una duodécima parte de lo disponible.
+
+    Los duplicados no inflaban los totales porque `addEvents` deduplica por
+    huella de contenido, pero los datos que faltaban no estaban.
+  */
+  const vistos = new Set<string>();
 
   for (let p = 0; p < pages; p++) {
     const qs = new URLSearchParams({
@@ -141,7 +155,7 @@ export async function fetchLiquidationHistory(symbolKey: string, pages = 3): Pro
       state: "filled",
       limit: "100",
     });
-    if (before) qs.set("before", before);
+    if (after) qs.set("after", after);
     let j: { data?: { instId?: string; details?: OkxDetail[] }[] };
     try {
       j = await getJson(`${REST}/public/liquidation-orders?${qs}`);
@@ -154,17 +168,29 @@ export async function fetchLiquidationHistory(symbolKey: string, pages = 3): Pro
       for (const d of row.details ?? []) details.push({ instId: id, d });
     }
     if (!details.length) break;
+
+    let nuevos = 0;
     for (const { instId: id, d } of details) {
+      // Identidad de la liquidación en sí, para no rehacer trabajo si la API
+      // repite filas entre páginas.
+      const huella = `${id}|${d.ts}|${d.sz}|${d.bkPx ?? d.px}|${d.posSide}`;
+      if (vistos.has(huella)) continue;
+      vistos.add(huella);
+      nuevos += 1;
       const liq = toLiquidation(id, d, ++seq);
       if (liq) out.push(liq);
     }
+    // Si una página entera no aporta nada nuevo, se acabó el historial: seguir
+    // pidiendo solo gastaría peticiones contra una API pública.
+    if (!nuevos) break;
+
     // paginar hacia atrás usando el ts más antiguo de esta página
     const oldest = details.reduce(
       (min, x) => Math.min(min, Number(x.d.ts) || Infinity),
       Infinity
     );
     if (!Number.isFinite(oldest)) break;
-    before = String(oldest);
+    after = String(oldest);
   }
   return out;
 }

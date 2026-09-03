@@ -161,6 +161,11 @@ export default function MarketPanel({ api }: { api: MarketApi }) {
             title="Precios en tiempo real. Detecta el socket abierto pero mudo y cae a spot."
           />
           <HealthTag name="OKX WS" state={api.health.okxWs} title="Liquidaciones completas" />
+          <HealthTag
+            name="OKX hist."
+            state={api.health.okxRest}
+            title="Backfill de 24 h de liquidaciones. Si falla, el mapa arranca vacío en vez de con un día de historial."
+          />
           <HealthTag name="Bybit WS" state={api.health.bybitWs} title="Liquidaciones completas" />
         </div>
         <p className="mt-2.5 font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
