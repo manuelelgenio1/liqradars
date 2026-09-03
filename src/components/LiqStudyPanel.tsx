@@ -59,6 +59,10 @@ function Hipotesis({ s, mejor }: { s: SideStat; mejor: boolean }) {
         <span title="Por debajo de 2,24 no se distingue del azar, al contrastar dos hipótesis opuestas">
           t = <b className="text-[var(--color-muted)]">{Number.isFinite(s.tStat) ? s.tStat.toFixed(2) : "—"}</b>
         </span>
+        <span title="Sucesos independientes usados para el cálculo">
+          n = <b className="text-[var(--color-muted)]">{s.n}</b>
+          {s.rawN > s.n && <span className="opacity-60"> de {s.rawN}</span>}
+        </span>
       </div>
     </div>
   );
@@ -104,11 +108,19 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
       {/* ---- estado del registro ---- */}
       <div className="grid grid-cols-3 divide-x divide-[var(--color-line-soft)] border-b border-[var(--color-line-soft)]">
         <div className="px-3 py-2.5">
-          <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">Cerradas</div>
-          <div className="tnum mt-1 font-display text-lg font-bold leading-none text-[var(--color-bright)]">
+          <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">Sucesos</div>
+          <div
+            className="tnum mt-1 font-display text-lg font-bold leading-none text-[var(--color-bright)]"
+            title="Sucesos independientes. Una cascada que toca varios símbolos a la vez es UNO, no varios: sus retornos no son datos nuevos."
+          >
             {principal.resolved}
             <span className="text-[10px] font-normal text-[var(--color-dim)]"> / {MIN_OBS}</span>
           </div>
+          {principal.resolvedRaw > principal.resolved && (
+            <div className="mt-0.5 font-mono text-[8px] text-[var(--color-dim)]">
+              {principal.resolvedRaw} filas agrupadas
+            </div>
+          )}
         </div>
         <div className="px-3 py-2.5">
           <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">Esperando</div>
@@ -179,7 +191,9 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
           hora, para no contar veinte veces la misma cascada. Se guarda el retorno{" "}
           <b className="text-[var(--color-muted)]">crudo</b>, de modo que las dos hipótesis opuestas se contrastan sobre
           los mismos datos sin haber elegido bando de antemano — por eso son espejo la una de la otra, y por eso el
-          listón sube a t&gt;2,24.
+          listón sube a t&gt;2,24. Las cascadas que barren varios símbolos a la vez cuentan como{" "}
+          <b className="text-[var(--color-muted)]">un solo suceso</b>: sus retornos van casi siempre al mismo lado, así
+          que sumarlos daría una muestra falsamente grande.
         </p>
         <p className="mt-2 font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
           {servidorVivo ? (

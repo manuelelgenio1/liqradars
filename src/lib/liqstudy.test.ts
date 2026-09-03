@@ -5,6 +5,8 @@ import {
   COOLDOWN_MS,
   emptyStudy,
   HORIZON_MS,
+  clusterEvents,
+  EVENT_WINDOW_MS,
   MIN_OBS,
   recordBurst,
   resolvePending,
@@ -93,9 +95,13 @@ describe("cierre de observaciones", () => {
 });
 
 describe("análisis", () => {
+  // Separadas más allá de la ventana de agrupación: cada una es un suceso
+  // independiente. Ponerlas juntas las convertiría en uno solo, que es
+  // precisamente lo que comprueba el bloque "sucesos independientes".
+  const PASO = EVENT_WINDOW_MS + 60_000;
   const cerrada = (i: number, dominant: "long" | "short", fwdPct: number): LiqObservation => ({
-    id: `o${i}`, ts: T0 + i * 1000, symbol: "BTCUSDT", dominant,
-    notional: 1e6, purity: 0.9, price: 100, fwdPct, resolvedTs: T0 + i * 1000 + HORIZON_MS,
+    id: `o${i}`, ts: T0 + i * PASO, symbol: "BTCUSDT", dominant,
+    notional: 1e6, purity: 0.9, price: 100, fwdPct, resolvedTs: T0 + i * PASO + HORIZON_MS,
   });
   const study = (obs: LiqObservation[]): LiqStudy => ({ obs, lastBurst: {} });
 
@@ -149,5 +155,101 @@ describe("análisis", () => {
     const r = analyze(study(obs));
     expect(r.resolved).toBe(MIN_OBS);
     expect(r.pending).toBe(1);
+  });
+});
+
+describe("sucesos independientes", () => {
+  /*
+    Lo que esto vigila: el enfriamiento es POR SÍMBOLO, así que una cascada de
+    mercado deja una fila por símbolo. Medido sobre las primeras observaciones
+    reales, los símbolos de un mismo grupo iban al mismo lado el 86 % de las
+    veces. Si se cuentan como independientes, la muestra se dobla y la
+    significación se multiplica por raíz de dos — un falso positivo servido.
+  */
+  const en = (min: number, symbol = "BTCUSDT") => ({ ts: T0 + min * 60_000, symbol });
+
+  it("agrupa lo simultáneo aunque sean símbolos distintos", () => {
+    const g = clusterEvents([en(0, "BTCUSDT"), en(1, "ETHUSDT"), en(2, "SOLUSDT")]);
+    expect(g).toHaveLength(1);
+    expect(g[0]).toHaveLength(3);
+  });
+
+  it("separa lo que está lejos en el tiempo", () => {
+    const lejos = EVENT_WINDOW_MS / 60_000 + 1;
+    expect(clusterEvents([en(0), en(lejos), en(lejos * 2)])).toHaveLength(3);
+  });
+
+  it("mide desde el inicio del grupo, no en cadena", () => {
+    // Sin esto, una racha de estallidos separados por 29 min encadenaría
+    // horas enteras en un solo grupo y se perdería casi toda la muestra.
+    const paso = EVENT_WINDOW_MS / 60_000 - 1;
+    const g = clusterEvents([en(0), en(paso), en(paso * 2), en(paso * 3)]);
+    expect(g.length).toBeGreaterThan(1);
+  });
+
+  it("no depende del orden de entrada", () => {
+    const a = clusterEvents([en(0), en(1), en(200)]).map((g) => g.length);
+    const b = clusterEvents([en(200), en(1), en(0)]).map((g) => g.length);
+    expect(b).toEqual(a);
+  });
+
+  it("una cascada cuenta como UNA observación, no como tres", () => {
+    // 30 cascadas de 3 símbolos = 90 filas, pero solo 30 sucesos.
+    const obs: LiqObservation[] = [];
+    for (let i = 0; i < 30; i++) {
+      for (const sym of ["BTCUSDT", "ETHUSDT", "SOLUSDT"]) {
+        obs.push({
+          id: `${i}-${sym}`, ts: T0 + i * 3 * EVENT_WINDOW_MS, symbol: sym,
+          dominant: "long", notional: 1e6, purity: 1, price: 100,
+          fwdPct: -1.2, resolvedTs: T0,
+        });
+      }
+    }
+    const r = analyze({ obs, lastBurst: {} });
+    expect(r.resolvedRaw).toBe(90);
+    expect(r.resolved).toBe(30);
+    expect(r.momentum!.n).toBe(30);
+    expect(r.momentum!.rawN).toBe(90);
+  });
+
+  it("agrupar reduce la significación, no la aumenta", () => {
+    // mismos datos, una vez juntos en cascadas y otra vez bien separados
+    const mk = (i: number, sym: string, ts: number): LiqObservation => ({
+      id: `${i}-${sym}`, ts, symbol: sym, dominant: "long", notional: 1e6,
+      purity: 1, price: 100, fwdPct: -1 - (i % 4) * 0.1, resolvedTs: ts,
+    });
+    const juntas: LiqObservation[] = [];
+    const sueltas: LiqObservation[] = [];
+    let k = 0;
+    for (let i = 0; i < 30; i++) {
+      for (const sym of ["BTCUSDT", "ETHUSDT", "SOLUSDT"]) {
+        juntas.push(mk(i, sym, T0 + i * 3 * EVENT_WINDOW_MS));
+        sueltas.push(mk(i, sym, T0 + k++ * 3 * EVENT_WINDOW_MS));
+      }
+    }
+    const a = analyze({ obs: juntas, lastBurst: {} });
+    const b = analyze({ obs: sueltas, lastBurst: {} });
+    expect(a.resolved).toBe(30);
+    expect(b.resolved).toBe(90);
+    // la t crece con la raíz de n: separadas dan una t mayor con los mismos datos
+    expect(Math.abs(b.momentum!.tStat)).toBeGreaterThan(Math.abs(a.momentum!.tStat));
+  });
+
+  it("el umbral se aplica a sucesos, no a filas", () => {
+    // 87 filas pero solo 29 sucesos: todavía no hay muestra
+    const obs: LiqObservation[] = [];
+    for (let i = 0; i < 29; i++) {
+      for (const sym of ["BTCUSDT", "ETHUSDT", "SOLUSDT"]) {
+        obs.push({
+          id: `${i}-${sym}`, ts: T0 + i * 3 * EVENT_WINDOW_MS, symbol: sym,
+          dominant: "long", notional: 1e6, purity: 1, price: 100,
+          fwdPct: -3, resolvedTs: T0,
+        });
+      }
+    }
+    const r = analyze({ obs, lastBurst: {} });
+    expect(r.resolvedRaw).toBe(87);
+    expect(r.verdict).toBe("MUESTRA CORTA");
+    expect(r.note).toContain("87 filas");
   });
 });

@@ -33,8 +33,38 @@ export const BURST_USD = 250_000;
 export const HORIZON_MS = 60 * 60_000;
 /** Tras un estallido no se anota otro hasta pasado esto: evita contar el mismo suceso veinte veces. */
 export const COOLDOWN_MS = 30 * 60_000;
-/** Hacen falta 30 observaciones cerradas antes de opinar. */
+/** Hacen falta 30 SUCESOS independientes antes de opinar (no 30 filas). */
 export const MIN_OBS = 30;
+
+/*
+  AGRUPACIÓN POR SUCESO.
+
+  El enfriamiento es por símbolo, así que una cascada que barre el mercado
+  deja una fila por cada símbolo que tocó: BTC, ETH y SOL en el mismo minuto
+  son tres filas. Pero es UN solo suceso, y sus tres retornos no son datos
+  nuevos — medido sobre las primeras observaciones, los símbolos de un mismo
+  grupo van al mismo lado el 86 % de las veces (el 50 % sería independencia).
+
+  Tratarlas como independientes multiplicaría la muestra por dos y la
+  significación por raíz de dos. Es el mismo error que ya invalidó una
+  búsqueda de combinaciones antes de detectarlo, así que aquí se corrige de
+  raíz: cada cascada aporta UNA observación, la media de sus miembros.
+*/
+export const EVENT_WINDOW_MS = 30 * 60_000;
+
+/** Agrupa observaciones próximas en el tiempo, sin importar el símbolo. */
+export function clusterEvents<T extends { ts: number }>(obs: T[], windowMs = EVENT_WINDOW_MS): T[][] {
+  const orden = [...obs].sort((a, b) => a.ts - b.ts);
+  const out: T[][] = [];
+  for (const o of orden) {
+    const g = out[out.length - 1];
+    // se compara con el INICIO del grupo: si no, una racha larga encadenaría
+    // sucesos separados por horas en un solo grupo gigante
+    if (g && o.ts - g[0].ts <= windowMs) g.push(o);
+    else out.push([o]);
+  }
+  return out;
+}
 
 export interface LiqObservation {
   id: string;
@@ -139,7 +169,10 @@ export function resolvePending(study: LiqStudy, symbol: string, candles: Candle[
 export interface SideStat {
   /** hipótesis contrastada */
   label: string;
+  /** sucesos independientes: es la n que vale */
   n: number;
+  /** filas en bruto, antes de agrupar cascadas */
+  rawN: number;
   /** retorno medio BRUTO a favor de la hipótesis, en % */
   grossPct: number;
   /** ídem, descontado el coste de ida y vuelta */
@@ -151,7 +184,10 @@ export interface SideStat {
 }
 
 export interface StudyReport {
+  /** sucesos independientes ya cerrados */
   resolved: number;
+  /** filas cerradas en bruto */
+  resolvedRaw: number;
   pending: number;
   /** continuación: los largos liquidados empujan el precio ABAJO */
   momentum: SideStat | null;
@@ -161,15 +197,26 @@ export interface StudyReport {
   note: string;
 }
 
-function stat(label: string, rets: number[], baseUp: number, dirs: number[]): SideStat {
+/**
+ * `grupos` son los sucesos ya agrupados: cada uno aporta la media de sus
+ * miembros, una sola observación. El acierto se mide igual, sobre la media
+ * del suceso, para que las dos cifras hablen de lo mismo.
+ */
+function stat(label: string, grupos: { ret: number; dir: number }[][], baseUp: number): SideStat {
+  const rets = grupos.map((g) => g.reduce((s, x) => s + x.ret, 0) / g.length);
+  const dirs = grupos.map((g) => g.reduce((s, x) => s + x.dir, 0) / g.length);
+  const rawN = grupos.reduce((s, g) => s + g.length, 0);
+
   const n = rets.length;
   const m = rets.reduce((a, b) => a + b, 0) / n;
   const sd = n > 1 ? Math.sqrt(rets.reduce((s, x) => s + (x - m) ** 2, 0) / (n - 1)) : NaN;
   // línea base: acertar por azar, según la dirección apostada en cada caso
   const base = dirs.reduce((s, d) => s + (d > 0 ? baseUp : 1 - baseUp), 0) / n;
+
   return {
     label,
     n,
+    rawN,
     grossPct: m,
     netPct: m - ROUND_TRIP_COST_PCT,
     hitRate: rets.filter((r) => r > 0).length / n,
@@ -185,6 +232,7 @@ export function analyze(study: LiqStudy): StudyReport {
   if (!cerradas.length) {
     return {
       resolved: 0,
+      resolvedRaw: 0,
       pending,
       momentum: null,
       reversal: null,
@@ -197,26 +245,36 @@ export function analyze(study: LiqStudy): StudyReport {
   const baseUp = cerradas.filter((o) => (o.fwdPct as number) > 0).length / cerradas.length;
 
   // Continuación: largos liquidados ⇒ venta forzada ⇒ se apuesta a la BAJA.
-  const dirMom = cerradas.map((o) => (o.dominant === "long" ? -1 : 1));
-  const retMom = cerradas.map((o, i) => dirMom[i] * (o.fwdPct as number));
-  const momentum = stat("Continuación · la liquidación empuja", retMom, baseUp, dirMom);
+  // Se agrupa ANTES de medir: una cascada de mercado es un solo dato.
+  const grupos = clusterEvents(cerradas).map((g) =>
+    g.map((o) => {
+      const dir = o.dominant === "long" ? -1 : 1;
+      return { ret: dir * (o.fwdPct as number), dir };
+    })
+  );
+  const momentum = stat("Continuación · la liquidación empuja", grupos, baseUp);
 
   // Agotamiento: exactamente la misma señal, al revés.
   const reversal = stat(
     "Agotamiento · la liquidación marca el giro",
-    retMom.map((r) => -r),
-    baseUp,
-    dirMom.map((d) => -d)
+    grupos.map((g) => g.map((x) => ({ ret: -x.ret, dir: -x.dir }))),
+    baseUp
   );
 
-  if (cerradas.length < MIN_OBS) {
+  const sucesos = grupos.length;
+
+  if (sucesos < MIN_OBS) {
     return {
-      resolved: cerradas.length,
+      resolved: sucesos,
+      resolvedRaw: cerradas.length,
       pending,
       momentum,
       reversal,
       verdict: "MUESTRA CORTA",
-      note: `${cerradas.length} de ${MIN_OBS} observaciones cerradas. Por debajo de eso cualquier diferencia es ruido.`,
+      note:
+        cerradas.length > sucesos
+          ? `${sucesos} de ${MIN_OBS} sucesos independientes (${cerradas.length} filas: las cascadas que tocan varios símbolos a la vez cuentan como una). Por debajo de ${MIN_OBS} cualquier diferencia es ruido.`
+          : `${sucesos} de ${MIN_OBS} sucesos cerrados. Por debajo de eso cualquier diferencia es ruido.`,
     };
   }
 
@@ -225,7 +283,8 @@ export function analyze(study: LiqStudy): StudyReport {
   const gana = mejor.netPct > 0 && mejor.tStat > 2.24;
 
   return {
-    resolved: cerradas.length,
+    resolved: sucesos,
+    resolvedRaw: cerradas.length,
     pending,
     momentum,
     reversal,
