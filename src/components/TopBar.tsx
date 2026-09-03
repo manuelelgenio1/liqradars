@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import { SYMBOLS } from "../lib/types";
 import * as f from "../lib/format";
@@ -19,11 +19,7 @@ function Logo() {
 }
 
 export default function TopBar({ api }: { api: MarketApi }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  const now = useNow(1000);
 
   const live = api.health.binanceWs === "viva";
   const up = api.snap.change24h >= 0;

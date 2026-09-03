@@ -76,7 +76,7 @@ export default function PriceChart({ api }: { api: MarketApi }) {
     st: true,
   });
   const [hover, setHover] = useState<Hover | null>(null);
-  const [visible, setVisible] = useState(90);
+  const [visiblePedido, setVisible] = useState(90);
   const [offset, setOffset] = useState(0);
   const drag = useRef<{ x: number; startOffset: number } | null>(null);
   /*
@@ -94,6 +94,15 @@ export default function PriceChart({ api }: { api: MarketApi }) {
   const { snap, indicators, price, spec, tfSpec, liqEvents, liqLevels } = api;
   const candles = snap.candles;
   const total = candles.length;
+  /*
+    Cuántas velas se ven: lo pedido, recortado a lo que hay.
+
+    El recorte era un `setVisible` dentro de un efecto que dependía de `total`.
+    Como estado no aportaba nada —siempre es una función de `visiblePedido` y
+    `total`— y a cambio provocaba un render extra cada vez que llegaba una
+    vela. Derivarlo lo deja en uno.
+  */
+  const visible = Math.min(visiblePedido, Math.max(MIN_VISIBLE, total));
 
   // ---------- medidas ----------
   useEffect(() => {
@@ -118,10 +127,26 @@ export default function PriceChart({ api }: { api: MarketApi }) {
     };
   }, [fullscreen]);
 
-  useEffect(() => {
+  /*
+    Volver al presente SOLO al cambiar de instrumento, nunca al llegar velas.
+
+    Antes esto era un efecto con `total` entre las dependencias, y `total`
+    crece con cada vela nueva: si te habías desplazado al pasado, la siguiente
+    vela te devolvía de un salto al presente. Molesto y difícil de atribuir,
+    porque parecía que el gráfico "se movía solo".
+
+    El patrón es el que documenta React para reiniciar estado cuando cambia
+    una prop: comparar contra el valor anterior durante el render. Se ejecuta
+    antes de pintar, así que no hay un fotograma con el estado viejo.
+  */
+  const instrumento = `${api.symbol}|${api.tf}`;
+  const [instrumentoPrevio, setInstrumentoPrevio] = useState(instrumento);
+  if (instrumentoPrevio !== instrumento) {
+    setInstrumentoPrevio(instrumento);
     setOffset(0);
-    setVisible((v) => Math.min(v, Math.max(MIN_VISIBLE, total)));
-  }, [api.symbol, api.tf, total]);
+  }
+
+
 
   // ---------- ventana visible ----------
   const view = useMemo(() => {

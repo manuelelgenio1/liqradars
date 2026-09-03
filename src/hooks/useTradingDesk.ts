@@ -55,7 +55,6 @@ export interface TradingDesk {
 }
 
 export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
-  const [rows, setRows] = useState<TradeLevels[]>([]);
   const [failed, setFailed] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +74,8 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
 
   useEffect(() => {
     let cancelled = false;
+    // Marcar "cargando" antes de pedir las seis temporalidades. Es el patrón habitual y la alternativa es una tabla que parece vacía sin decir por qué.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
 
     const cargar = async () => {
@@ -107,16 +108,25 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     };
   }, [symbol]);
 
-  // Los niveles se recalculan cuando llegan velas nuevas o cambia el precio.
-  useEffect(() => {
-    const out: TradeLevels[] = [];
-    for (const key of DESK_TFS) {
-      const tf = TIMEFRAMES.find((t) => t.key === key)!;
-      const candles = candlesByTf[key] ?? [];
-      out.push(computeLevels(key, tf.label, candles, tf.minutes, livePrice));
-    }
-    setRows(out);
-  }, [candlesByTf, livePrice]);
+  /*
+    Derivación pura, no estado.
+
+    Esto era `useState` + `useEffect`: se calculaban las filas en un efecto y
+    se guardaban con `setRows`. Eso obliga a React a pintar dos veces cada vez
+    que llega una vela o se mueve el precio — una con las filas viejas y otra
+    con las nuevas. Y aquí el precio se mueve constantemente.
+
+    Los niveles son una función de las velas y el precio: no hay nada que
+    "recordar", así que van en un memo y se pinta una sola vez.
+  */
+  const rows = useMemo(
+    () =>
+      DESK_TFS.map((key) => {
+        const tf = TIMEFRAMES.find((t) => t.key === key)!;
+        return computeLevels(key, tf.label, candlesByTf[key] ?? [], tf.minutes, livePrice);
+      }),
+    [candlesByTf, livePrice]
+  );
 
   const align = useMemo(() => alignment(rows), [rows]);
 
@@ -176,7 +186,10 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
       setScannedAt(Date.now());
       setScanning(false);
     })();
-  }, []);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [scanTfRef, universeRef]);
 
   return {
     rows,

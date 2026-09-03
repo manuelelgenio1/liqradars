@@ -1,3 +1,4 @@
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import { DESK_TFS, type TradingDesk } from "../hooks/useTradingDesk";
 import type { TradeLevels } from "../lib/levels";
@@ -88,6 +89,7 @@ function Fila({ r, dec, activa, onClick }: { r: TradeLevels; dec: number; activa
 }
 
 export default function TradingPanel({ api, desk }: { api: MarketApi; desk: TradingDesk }) {
+  const ahora = useNow(30_000);
   const dec = api.spec.decimals;
   const { align } = desk;
 
@@ -308,7 +310,7 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
             {desk.scannedAt > 0 && !desk.scanning && (
               <div className="px-3.5 py-2">
                 <p className="font-mono text-[8px] text-[var(--color-dim)]">
-                  Escaneado hace {f.ago(desk.scannedAt, Date.now())} en {desk.scanTf} · ordenado por comisión más baja
+                  Escaneado hace {f.ago(desk.scannedAt, ahora)} en {desk.scanTf} · ordenado por comisión más baja
                   entre los que tienen dirección. Pulsa un par para cambiar a él y ver sus seis marcos.
                 </p>
               </div>

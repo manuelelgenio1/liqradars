@@ -84,6 +84,8 @@ export function useConfluence(symbol: string, venue: binance.Venue): ConfluenceS
       });
     };
 
+    // Marcar "cargando" antes de lanzar la descarga es el patrón que documenta React. La alternativa sería no avisar de que se está cargando.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState((s) => ({ ...s, loading: true }));
     void load();
     const id = window.setInterval(() => void load(), 60_000);

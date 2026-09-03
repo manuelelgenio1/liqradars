@@ -1,3 +1,4 @@
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import type { SignalsApi } from "../hooks/useSignals";
 import * as f from "../lib/format";
@@ -14,6 +15,7 @@ import { costInR, costVerdict, ROUND_TRIP_COST_PCT } from "../lib/signals";
 
 export default function SignalPanel({ api, sig }: { api: MarketApi; sig: SignalsApi }) {
   const abierta = sig.open[0] ?? null;
+  const ahora = useNow(10_000);
   const score = sig.liveScore;
   const dir = score > 0 ? "long" : "short";
   const armed = Math.abs(score) >= sig.threshold;
@@ -59,7 +61,7 @@ export default function SignalPanel({ api, sig }: { api: MarketApi; sig: Signals
               {abierta.side === "long" ? "LARGO" : "CORTO"}
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
-              abierta hace {f.ago(abierta.ts, Date.now())}
+              abierta hace {f.ago(abierta.ts, ahora)}
             </span>
             <span className="tnum ml-auto text-[10px] font-bold text-[var(--color-bright)]">
               R:R {f.num(abierta.rr, 2)}

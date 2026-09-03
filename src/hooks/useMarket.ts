@@ -183,6 +183,8 @@ export function useMarket() {
   // ---------- carga REST del símbolo / temporalidad ----------
   useEffect(() => {
     let cancelled = false;
+    // Igual que arriba: marcar "cargando" antes de la descarga. Sin esto la app enseñaría datos del símbolo anterior como si fueran del nuevo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     // `void`: la función ya trata sus propios errores dentro. Marcarlo evita
     // que un `throw` añadido más adelante se convierta en un rechazo perdido
@@ -216,7 +218,10 @@ export function useMarket() {
     return () => {
       cancelled = true;
     };
-  }, [spec.binance, tfSpec.binance, venue, setVenue]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [spec.binance, tfSpec.binance, venue, setVenue, venueRef]);
 
   // ---------- libro de órdenes ----------
   // Va en su PROPIO intervalo, rápido. Antes compartía los 30 s de funding y
@@ -241,7 +246,10 @@ export function useMarket() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [spec.binance]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [spec.binance, pausedRef, venueRef]);
 
   // ---------- métricas lentas (funding, OI, posicionamiento) ----------
   useEffect(() => {
@@ -268,7 +276,10 @@ export function useMarket() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [spec.binance]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [spec.binance, pausedRef]);
 
   // ---------- reintento del mercado preferido ----------
   // Mientras estemos degradados, se sondea futuros con una llamada barata. En
@@ -300,7 +311,10 @@ export function useMarket() {
       }
     }, 20_000);
     return () => window.clearInterval(id);
-  }, [spec.binance, tfSpec.binance]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [spec.binance, tfSpec.binance, pausedRef, venueRef]);
 
   // ---------- precios en vivo ----------
   // Mientras Binance entregue, el tick viene de Binance. Si su stream se queda
@@ -357,12 +371,17 @@ export function useMarket() {
       window.clearInterval(probe);
       sock.close();
     };
-  }, [tickFromOkx, venue]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [tickFromOkx, venue, venuePrefRef]);
 
   // ---------- flujo real (aggTrade) ----------
   useEffect(() => {
     tradeDelta.current = 0;
     flowCount.current = 0;
+    // Al cambiar de instrumento, el flujo del anterior deja de valer. No reiniciarlo mostraría "flujo real" con el contador del símbolo que acabas de dejar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRealFlow(false);
     const sock = binance.streamTrades(
       spec.binance,

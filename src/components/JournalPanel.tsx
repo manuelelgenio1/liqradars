@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import type { SignalsApi } from "../hooks/useSignals";
 import type { Outcome, Stats } from "../lib/signals";
@@ -30,12 +31,8 @@ const VERDICT_META: Record<Stats["verdict"], { kind: "real" | "partial" | "none"
 };
 
 export default function JournalPanel({ api, sig }: { api: MarketApi; sig: SignalsApi }) {
-  const [now, setNow] = useState(Date.now());
+  const now = useNow(2000);
   const [confirmClear, setConfirmClear] = useState(false);
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 2000);
-    return () => window.clearInterval(id);
-  }, []);
   useEffect(() => {
     if (!confirmClear) return;
     const t = window.setTimeout(() => setConfirmClear(false), 4000);

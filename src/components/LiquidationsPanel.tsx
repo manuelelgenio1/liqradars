@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import { countsInTotals, sideBalance } from "../lib/liqstore";
 import type { Provenance } from "../lib/types";
@@ -27,12 +28,8 @@ const WINDOW_MIN = 60;
 type Filter = "todas" | "long" | "short" | "grandes";
 
 export default function LiquidationsPanel({ api }: { api: MarketApi }) {
-  const [now, setNow] = useState(Date.now());
+  const now = useNow(2000);
   const [filter, setFilter] = useState<Filter>("todas");
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 2000);
-    return () => window.clearInterval(id);
-  }, []);
 
   const { liqEvents, liqTotals, liqRate, spec } = api;
   const balance = sideBalance(liqTotals);

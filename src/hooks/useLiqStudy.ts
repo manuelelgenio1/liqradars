@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLatest } from "./useLatest";
+import { useNow } from "./useNow";
 import type { MarketApi } from "./useMarket";
 import {
   analyze,
@@ -48,8 +49,18 @@ export function useLiqStudy(api: MarketApi): LiqStudyApi {
   // escribir en el ref durante el render.
   const ref = useLatest({ api, study });
 
+  /*
+    `ahora` viene de estado, no de `Date.now()` en el render.
+
+    No es solo pureza: con `Date.now()` este memo solo se recalculaba cuando
+    llegaban liquidaciones NUEVAS, así que la ventana no se deslizaba sola. Un
+    minuto tranquilo dejaba dentro eventos ya caducados, y el nocional del
+    "último minuto" se quedaba inflado hasta que entrara algo.
+  */
+  const ahora = useNow(5_000);
+
   const recent = useMemo(() => {
-    const desde = Date.now() - BURST_WINDOW_MS;
+    const desde = ahora - BURST_WINDOW_MS;
     let long = 0;
     let short = 0;
     for (const e of api.liqEvents) {
@@ -58,7 +69,7 @@ export function useLiqStudy(api: MarketApi): LiqStudyApi {
       else short += e.usd;
     }
     return { long, short };
-  }, [api.liqEvents]);
+  }, [api.liqEvents, ahora]);
 
   const recentRef = useLatest(recent);
 
@@ -83,16 +94,26 @@ export function useLiqStudy(api: MarketApi): LiqStudyApi {
     const id = window.setInterval(tick, TICK_MS);
     tick();
     return () => window.clearInterval(id);
-  }, []);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [recentRef, ref]);
 
   // ---------- registro de servidor ----------
-  const [server, setServer] = useState<ServerStudy>(() => emptyServer());
+  /*
+    El estado inicial ya dice la verdad.
+
+    Antes arrancaba vacío y un efecto lo corregía a "sin configurar" con un
+    `setServer`, lo que provocaba un render de más con un estado que nunca fue
+    cierto. `SERVER_URL` es una constante de módulo: se sabe desde el primer
+    render.
+  */
+  const [server, setServer] = useState<ServerStudy>(() =>
+    SERVER_URL ? emptyServer() : { ...emptyServer(), error: "sin configurar" }
+  );
 
   useEffect(() => {
-    if (!SERVER_URL) {
-      setServer({ ...emptyServer(), error: "sin configurar" });
-      return;
-    }
+    if (!SERVER_URL) return;
     const ac = new AbortController();
     const traer = () => {
       fetchServerStudy(ac.signal).then(setServer).catch(() => {

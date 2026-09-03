@@ -1,3 +1,4 @@
+import { useNow } from "../hooks/useNow";
 import type { MarketApi } from "../hooks/useMarket";
 import type { LiqStudyApi } from "../hooks/useLiqStudy";
 import { BURST_USD, HORIZON_MS, MIN_OBS, type SideStat } from "../lib/liqstudy";
@@ -74,7 +75,7 @@ export default function LiqStudyPanel({ api, liq }: { api: MarketApi; liq: LiqSt
   const grabando = api.liqTotals.hasCompleteSource;
 
   // El de servidor manda mientras esté disponible; si no, se cae al local.
-  const ahora = Date.now();
+  const ahora = useNow(30_000);
   const congelado = isStale(server, ahora);
   const servidorVivo = !!SERVER_URL && !server.error;
   const principal = servidorVivo ? serverReport : report;

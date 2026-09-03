@@ -7,6 +7,7 @@
 // ============================================================
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLatest } from "./useLatest";
+import { useNow } from "./useNow";
 import {
   buildSignal,
   computeStats,
@@ -54,6 +55,9 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
   const [autoEnabled, setAutoEnabledState] = useState<boolean>(() => read<boolean>("liqradar:autosig", true));
   const signalsRef = useLatest(signals);
 
+  // Ventana deslizante de liquidaciones: ver el comentario dentro del memo.
+  const ahora = useNow(30_000);
+
   const setAutoEnabled = useCallback((v: boolean) => {
     setAutoEnabledState(v);
     write("liqradar:autosig", v);
@@ -72,8 +76,11 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
     const atr = ind.atr.at(-1);
     if (!Number.isFinite(atr) || !atr) return null;
 
-    // solo liquidaciones de la última media hora: el flujo forzado caduca
-    const since = Date.now() - 30 * 60_000;
+    // solo liquidaciones de la última media hora: el flujo forzado caduca.
+    // `ahora` es estado para que la ventana se deslice aunque no entre nada
+    // nuevo; con `Date.now()` aquí, un mercado tranquilo dejaba contando
+    // liquidaciones ya caducadas.
+    const since = ahora - 30 * 60_000;
     let liqLong = 0;
     let liqShort = 0;
     for (const e of api.liqEvents) {
@@ -96,7 +103,7 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
       fundingPct: api.snap.funding?.rate ?? NaN,
       oiDelta1hPct: api.snap.oi?.delta1hPct ?? NaN,
     };
-  }, [api.indicators, api.price, api.symbol, api.tf, api.liqEvents, api.snap.book, api.snap.funding, api.snap.oi, confluence]);
+  }, [ahora, api.indicators, api.price, api.symbol, api.tf, api.liqEvents, api.snap.book, api.snap.funding, api.snap.oi, confluence]);
 
   const live = useMemo(
     () => (inputs ? scoreSignal(inputs) : { score: 0, reasons: [] }),
@@ -138,7 +145,10 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
       if (sig) persist([sig, ...existing]);
     }, 15_000);
     return () => window.clearInterval(id);
-  }, [persist]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [persist, autoRef, inputsRef, pausedRef, signalsRef]);
 
   // ---------- resolución contra velas reales ----------
   // Mismo motivo que arriba: las velas se refrescan constantemente, así que
@@ -164,7 +174,10 @@ export function useSignals(api: MarketApi, confluence: ConfluenceState): Signals
       if (changed) persist(next);
     }, 5_000);
     return () => window.clearInterval(id);
-  }, [persist]);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+  // siempre el mismo, así que incluirlos NO relanza el efecto. Lo que lo
+  // relanzaría es meter el valor, y evitarlo es el motivo del ref.
+  }, [persist, candlesRef, signalsRef, symbolRef]);
 
   const visible = useMemo(
     () => signals.filter((s) => s.symbol === api.symbol).sort((a, b) => b.ts - a.ts),
