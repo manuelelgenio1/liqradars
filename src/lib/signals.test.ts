@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_BARS, buildContraSignal, buildSignal, computeStats, costInR, evaluateSignal, scoreSignal, type Signal, type SignalInputs } from "./signals";
+import { MAX_BARS, buildContraSignal, buildSignal, computeStats, costInR, costVerdict, evaluateSignal, scoreSignal, type Signal, type SignalInputs } from "./signals";
 import { computeAll, configFor } from "./indicators";
 import type { Candle } from "./types";
 
@@ -303,5 +303,33 @@ describe("contra EMA+RSI", () => {
     const s = buildContraSignal(inp("alcista", "alcista"), 1)!;
     expect(s.strategy).toBe("contra-ema-rsi");
     expect(s.costR).toBeGreaterThan(0);
+  });
+});
+
+describe("aviso de coste", () => {
+  /*
+    Backtest de 28 días sobre el panel real: el coste medio por operación fue
+    -0,642R en 5m, -0,323R en 15m y -0,149R en 1H. La señal era ligeramente
+    mejor que el azar y aun así perdía. El usuario tiene que VER eso antes de
+    entrar, no descubrirlo en la bitácora tres semanas después.
+  */
+  it("clasifica según cuánto del riesgo se come la comisión", () => {
+    expect(costVerdict(0.05)).toBe("asumible");
+    expect(costVerdict(0.20)).toBe("alto");
+    expect(costVerdict(0.64)).toBe("prohibitivo");
+  });
+
+  it("un coste desconocido nunca se presenta como asumible", () => {
+    expect(costVerdict(NaN)).toBe("alto");
+  });
+
+  it("reproduce el orden real de las temporalidades medidas", () => {
+    // ATR típico como fracción del precio, con stop de 1,2 ATR
+    const coste = (atrPct: number) => costInR(100, 100 - 1.2 * atrPct);
+    const c5 = coste(0.18), c15 = coste(0.32), c1h = coste(0.80);
+    expect(c5).toBeGreaterThan(c15);
+    expect(c15).toBeGreaterThan(c1h);
+    expect(costVerdict(c5)).toBe("prohibitivo");
+    expect(costVerdict(c1h)).toBe("asumible");
   });
 });

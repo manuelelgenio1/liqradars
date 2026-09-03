@@ -51,6 +51,40 @@ export function costInR(entry: number, stop: number): number {
   return (entry * (ROUND_TRIP_COST_PCT / 100)) / risk;
 }
 
+/*
+  MEDIDO, NO SUPUESTO.
+
+  Se reconstruyeron las entradas reales del panel sobre 28 días, 6 símbolos y
+  tres temporalidades, llamando al mismo `buildSignal` que corre aquí. 1.471
+  señales, 409 sucesos independientes.
+
+  El resultado: la señal acierta algo más que el azar —40,4 % contra 38,5 %— y
+  en bruto sale positiva (+0,089R). Y aun así pierde 0,422R por operación,
+  porque el coste se lleva 0,511R.
+
+  La causa no es la señal, es la aritmética del stop:
+
+    marco   coste por operación   neto
+    5m           -0,642R        -0,592R
+    15m          -0,323R        -0,195R
+    1H           -0,149R        +0,101R  (la moneda al aire hizo +0,211R)
+
+  Un stop de 1,2 ATR en 5 minutos está a ~0,22 % del precio. Una comisión de
+  ida y vuelta del 0,14 % es, por tanto, el 64 % del riesgo — antes de que el
+  mercado se mueva. Ninguna estrategia de marco corto con stop ajustado puede
+  ganar pagando comisión de mercado; no es opinión, es división.
+
+  Por eso el panel enseña el coste en R junto a cada señal.
+*/
+export type CostVerdict = "asumible" | "alto" | "prohibitivo";
+
+export function costVerdict(costR: number): CostVerdict {
+  if (!Number.isFinite(costR)) return "alto";
+  if (costR >= 0.35) return "prohibitivo";
+  if (costR >= 0.15) return "alto";
+  return "asumible";
+}
+
 export interface SignalReason {
   label: string;
   detail: string;

@@ -2,6 +2,7 @@ import type { MarketApi } from "../hooks/useMarket";
 import type { SignalsApi } from "../hooks/useSignals";
 import * as f from "../lib/format";
 import { Card, SplitBar, Tag } from "./ui";
+import { costInR, costVerdict, ROUND_TRIP_COST_PCT } from "../lib/signals";
 
 /* ============================================================
    Señal en vivo.
@@ -80,6 +81,44 @@ export default function SignalPanel({ api, sig }: { api: MarketApi; sig: Signals
             ))}
           </div>
 
+          {(() => {
+            const c = abierta.costR ?? costInR(abierta.entry, abierta.stop);
+            const v = costVerdict(c);
+            const col =
+              v === "prohibitivo" ? "var(--color-down)" : v === "alto" ? "var(--color-warn)" : "var(--color-muted)";
+            return (
+              <div
+                className="mt-3 rounded border px-2.5 py-2"
+                style={{ borderColor: col, background: "rgba(255,255,255,0.02)" }}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
+                    Comisión de esta operación
+                  </span>
+                  <span className="tnum text-[12px] font-bold" style={{ color: col }}>
+                    −{Number.isFinite(c) ? c.toFixed(2) : "?"}R
+                  </span>
+                </div>
+                <p className="mt-1 font-mono text-[8px] leading-relaxed" style={{ color: col }}>
+                  {v === "prohibitivo" ? (
+                    <>
+                      El stop está tan cerca que la comisión se lleva el{" "}
+                      <b>{Math.round(c * 100)} %</b> de tu riesgo antes de que el mercado se mueva. Con estos números
+                      hace falta acertar muchísimo solo para empatar.
+                    </>
+                  ) : v === "alto" ? (
+                    <>
+                      La comisión se lleva el <b>{Math.round(c * 100)} %</b> del riesgo. Marcos más largos tienen el
+                      stop más ancho y el coste pesa mucho menos.
+                    </>
+                  ) : (
+                    <>El coste pesa poco frente al riesgo asumido: el stop es lo bastante ancho.</>
+                  )}
+                </p>
+              </div>
+            );
+          })()}
+
           <div className="mt-2 font-mono text-[8.5px] leading-relaxed text-[var(--color-dim)]">
             Fijados al nacer la señal. No se mueven: si el stop se moviera, el historial dejaría de significar nada.
           </div>
@@ -138,7 +177,15 @@ export default function SignalPanel({ api, sig }: { api: MarketApi; sig: Signals
       <footer className="mt-auto border-t border-[var(--color-line-soft)] px-4 py-2.5">
         <p className="font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
           Los pesos de cada componente son una <b className="text-[var(--color-muted)]">hipótesis</b>, no una verdad
-          conocida. Quien dictamina si valen algo es la bitácora de abajo — y puede perfectamente decir que no.
+          conocida. Quien dictamina si valen algo es la bitácora de abajo.
+        </p>
+        <p className="mt-2 font-mono text-[8px] leading-relaxed text-[var(--color-warn)]">
+          <b>Ya se midió, y el resultado fue malo.</b> Sobre 28 días, 6 símbolos y 409 sucesos independientes, estas
+          reglas acertaron algo más que el azar (40,4 % contra 38,5 %) y aun así perdieron{" "}
+          <b>0,42R por operación</b>: la comisión se llevaba 0,51R. Por temporalidad, el coste medio fue −0,64R en 5m,
+          −0,32R en 15m y −0,15R en 1H. La conclusión no es que la señal sea inútil, sino que{" "}
+          <b>en marcos cortos la aritmética del coste no deja margen</b> —{ROUND_TRIP_COST_PCT.toFixed(2)} % de ida y
+          vuelta contra un stop de 1,2 ATR— pagando comisión de mercado.
         </p>
       </footer>
     </Card>
