@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreIndicators } from "./indicatorScore";
+import { requiredSigma, scoreIndicators } from "./indicatorScore";
 import { configFor } from "./indicators";
 import type { Candle } from "./types";
 
@@ -126,5 +126,62 @@ describe("sin look-ahead", () => {
   it("es determinista", () => {
     const c = walk(400);
     expect(scoreIndicators(c, cfg, 5)).toEqual(scoreIndicators(c, cfg, 5));
+  });
+});
+
+describe("la ventaja no vale sin prueba de significación", () => {
+  /*
+    Este panel coronaba un ganador con `edge > 0,05` a secas. Con 100 llamadas
+    el error típico de una diferencia de proporciones ronda el 5 %, así que
+    cinco puntos —que parecen muchos— son UN sigma. Y encima elige el mejor de
+    cinco indicadores, lo que sube el listón todavía más.
+
+    O sea que nombraba campeón sobre ruido puro casi siempre que se pulsaba.
+  */
+  it("exige más sigmas cuantos más candidatos hay", () => {
+    expect(requiredSigma(1)).toBeCloseTo(1.96, 2);
+    expect(requiredSigma(5)).toBeGreaterThan(requiredSigma(1));
+    expect(requiredSigma(5)).toBeCloseTo(2.58, 2);
+  });
+
+  it("descuenta el solapamiento de las ventanas", () => {
+    // horizonte 12 y paso 3: cada movimiento se cuenta cuatro veces
+    const r = scoreIndicators(walk(900), cfg, 5, { horizon: 12, step: 3, warmup: 120 });
+    for (const x of r.records) {
+      if (x.calls > 0) expect(x.effectiveN).toBeCloseTo(x.calls / 4, 6);
+    }
+  });
+
+  it("un paseo aleatorio no corona a nadie", () => {
+    // No hay señal que encontrar: el veredicto no puede nombrar un ganador.
+    for (const semilla of [3, 17, 42, 101]) {
+      const r = scoreIndicators(walk(900, semilla), cfg, 5);
+      expect(r.note).not.toMatch(/aguanta la prueba/);
+    }
+  });
+
+  it("cuando la ventaja parece grande pero no llega, lo dice en vez de callarlo", () => {
+    // Se busca una muestra donde el mejor supere 5 puntos sin alcanzar el listón:
+    // es el caso peligroso, el que antes se anunciaba como hallazgo.
+    let visto = false;
+    for (const semilla of [5, 11, 23, 37, 59, 71, 83, 97]) {
+      const r = scoreIndicators(walk(700, semilla), cfg, 5);
+      const b = r.records[0];
+      if (b && b.edge > 0.05 && Number.isFinite(b.sigma) && b.sigma <= r.requiredSigma) {
+        expect(r.note).toContain("produce el azar");
+        visto = true;
+        break;
+      }
+    }
+    expect(visto).toBe(true);
+  });
+
+  it("el sigma tiene el mismo signo que la ventaja", () => {
+    const r = scoreIndicators(walk(900), cfg, 5);
+    for (const x of r.records) {
+      if (Number.isFinite(x.sigma) && Number.isFinite(x.edge) && x.edge !== 0) {
+        expect(Math.sign(x.sigma)).toBe(Math.sign(x.edge));
+      }
+    }
   });
 });

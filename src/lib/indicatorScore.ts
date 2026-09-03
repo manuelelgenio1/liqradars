@@ -28,8 +28,27 @@ export interface IndicatorRecord {
   hitRate: number;
   /** acierto esperable sin ninguna habilidad, dado lo que predijo */
   baseline: number;
-  /** hitRate − baseline. Es LA cifra. */
+  /** hitRate − baseline. Es LA cifra... pero no vale sola: mira `sigma`. */
   edge: number;
+  /*
+    Cuántas desviaciones típicas se aparta la ventaja de cero.
+
+    Sin esto, `edge` engaña de una forma muy concreta: con 100 llamadas el
+    error típico de una diferencia de proporciones ronda el 5 %, así que una
+    ventaja de 5 puntos —que parece mucho— es UN sigma. Ruido.
+
+    Dos correcciones que no son opcionales aquí:
+
+    1. Las muestras se solapan. Con horizonte 12 y paso 3, cada movimiento se
+       cuenta cuatro veces, así que la muestra efectiva es cuatro veces menor
+       que el número de llamadas. Ignorarlo dobla el sigma.
+    2. Se corona al mejor de cinco indicadores. Elegir el máximo de cinco
+       sube el listón: con Bonferroni, α = 0,05/5 ⇒ hacen falta 2,58 sigmas,
+       no 1,96.
+  */
+  sigma: number;
+  /** muestra efectiva, ya descontado el solapamiento */
+  effectiveN: number;
   /** recorrido medio a favor, en múltiplos de ATR */
   avgMove: number;
   longCalls: number;
@@ -38,6 +57,8 @@ export interface IndicatorRecord {
 
 export interface ScoreReport {
   records: IndicatorRecord[];
+  /** sigmas que hacen falta para coronar al mejor de N indicadores */
+  requiredSigma: number;
   samples: number;
   horizon: number;
   /** proporción de veces que el precio subió en el horizonte */
@@ -48,8 +69,18 @@ export interface ScoreReport {
 
 const MIN_SAMPLES = 25;
 
+/**
+ * Listón con Bonferroni para elegir el mejor de `k` indicadores, bilateral.
+ * Con k=5: α = 0,01 ⇒ 2,58 sigmas.
+ */
+export function requiredSigma(k: number): number {
+  const tabla: Record<number, number> = { 1: 1.96, 2: 2.24, 3: 2.39, 4: 2.5, 5: 2.58, 6: 2.64 };
+  return tabla[Math.max(1, Math.round(k))] ?? 3.0;
+}
+
 const empty = (verdict: ScoreReport["verdict"], note: string, horizon: number): ScoreReport => ({
   records: [],
+  requiredSigma: NaN,
   samples: 0,
   horizon,
   upRate: NaN,
@@ -141,9 +172,19 @@ export function scoreIndicators(
   }
 
   // También se puntúa el veredicto combinado, para poder compararlo.
+  // Cada movimiento se mide `horizon/step` veces: las ventanas se solapan y
+  // esas repeticiones no son datos nuevos.
+  const solapamiento = Math.max(1, horizon / step);
+
   const records: IndicatorRecord[] = [...acc.entries()].map(([name, a]) => {
     const hitRate = a.calls ? a.hits / a.calls : NaN;
     const baseline = a.calls ? a.baselineSum / a.calls : NaN;
+    const edge = Number.isFinite(hitRate) && Number.isFinite(baseline) ? hitRate - baseline : NaN;
+    const effectiveN = a.calls / solapamiento;
+    const se =
+      Number.isFinite(baseline) && effectiveN > 1
+        ? Math.sqrt((baseline * (1 - baseline)) / effectiveN)
+        : NaN;
     return {
       name,
       calls: a.calls,
@@ -151,7 +192,9 @@ export function scoreIndicators(
       neutrals: a.neutrals,
       hitRate,
       baseline,
-      edge: Number.isFinite(hitRate) && Number.isFinite(baseline) ? hitRate - baseline : NaN,
+      edge,
+      sigma: Number.isFinite(edge) && se > 0 ? edge / se : NaN,
+      effectiveN,
       avgMove: a.calls ? a.moveSum / a.calls : NaN,
       longCalls: a.longCalls,
       shortCalls: a.shortCalls,
@@ -160,9 +203,12 @@ export function scoreIndicators(
 
   records.sort((x, y) => (Number.isFinite(y.edge) ? y.edge : -9) - (Number.isFinite(x.edge) ? x.edge : -9));
 
+  const req = requiredSigma(records.length);
+
   if (samples < MIN_SAMPLES) {
     return {
       records,
+      requiredSigma: req,
       samples,
       horizon,
       upRate,
@@ -172,15 +218,25 @@ export function scoreIndicators(
   }
 
   const best = records[0];
+  const gana = best && Number.isFinite(best.sigma) && best.sigma > req && best.edge > 0;
+
+  let note: string;
+  if (gana) {
+    note = `${best.name} supera a su línea base en ${(best.edge * 100).toFixed(1)} puntos, y esta vez la diferencia aguanta la prueba (${best.sigma.toFixed(1)}σ sobre ${req}σ exigidos).`;
+  } else if (best && Number.isFinite(best.edge) && best.edge > 0.05) {
+    // El caso peligroso: parece un ganador claro y no lo es.
+    note = `${best.name} va ${(best.edge * 100).toFixed(1)} puntos por encima de su línea base, pero eso son solo ${Number.isFinite(best.sigma) ? best.sigma.toFixed(1) : "—"}σ y hacen falta ${req} para coronar al mejor de ${records.length}. Con esta muestra, esa ventaja es lo que produce el azar.`;
+  } else {
+    note = "Ningún indicador supera claramente a su línea base en esta muestra.";
+  }
+
   return {
     records,
+    requiredSigma: req,
     samples,
     horizon,
     upRate,
     verdict: "LISTO",
-    note:
-      best && Number.isFinite(best.edge) && best.edge > 0.05
-        ? `${best.name} es el que más aporta: ${(best.edge * 100).toFixed(1)} puntos sobre su línea base.`
-        : "Ningún indicador supera claramente a su línea base en esta muestra.",
+    note,
   };
 }

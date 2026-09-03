@@ -97,22 +97,29 @@ export default function IndicatorScorePanel({ api }: { api: MarketApi }) {
             </span>
           </div>
 
-          <div className="grid grid-cols-[86px_1fr_46px_46px_54px] gap-2 border-b border-[var(--color-line-soft)] px-4 py-1.5 font-mono text-[8.5px] uppercase tracking-[0.12em] text-[var(--color-dim)]">
+          <div className="grid grid-cols-[86px_1fr_40px_40px_40px_50px] gap-2 border-b border-[var(--color-line-soft)] px-4 py-1.5 font-mono text-[8.5px] uppercase tracking-[0.12em] text-[var(--color-dim)]">
             <span>Indicador</span>
             <span>Ventaja sobre su línea base</span>
+            <span className="text-right" title={`Sigmas. Hacen falta ${report.requiredSigma} para coronar al mejor de ${report.records.length}`}>
+              σ
+            </span>
             <span className="text-right">Acierta</span>
             <span className="text-right">Base</span>
             <span className="text-right">Llamadas</span>
           </div>
 
           {report.records.map((r) => {
-            const good = Number.isFinite(r.edge) && r.edge > 0.03;
-            const bad = Number.isFinite(r.edge) && r.edge < -0.03;
+            // Solo se colorea lo que ADEMÁS supera el listón de sigmas. Pintar
+            // de verde una ventaja grande sin significación la vende como
+            // hallazgo, que es exactamente el error que este panel cometía.
+            const solido = Number.isFinite(r.sigma) && Math.abs(r.sigma) > report.requiredSigma;
+            const good = solido && r.edge > 0;
+            const bad = solido && r.edge < 0;
             return (
               <div
                 key={r.name}
-                className="grid grid-cols-[86px_1fr_46px_46px_54px] items-center gap-2 border-b border-[var(--color-line-soft)] px-4 py-2 last:border-b-0"
-                title={`${r.longCalls} alcistas · ${r.shortCalls} bajistas · ${r.neutrals} veces se abstuvo\nRecorrido medio a favor: ${f.num(r.avgMove, 2)} ATR`}
+                className="grid grid-cols-[86px_1fr_40px_40px_40px_50px] items-center gap-2 border-b border-[var(--color-line-soft)] px-4 py-2 last:border-b-0"
+                title={`${r.longCalls} alcistas · ${r.shortCalls} bajistas · ${r.neutrals} veces se abstuvo\nRecorrido medio a favor: ${f.num(r.avgMove, 2)} ATR\nMuestra efectiva: ${Math.round(r.effectiveN)} (las ventanas se solapan)`}
               >
                 <span className="text-[10px] font-semibold text-[var(--color-body)]">{r.name}</span>
                 <div className="flex items-center gap-2">
@@ -127,6 +134,13 @@ export default function IndicatorScorePanel({ api }: { api: MarketApi }) {
                     {Number.isFinite(r.edge) ? `${r.edge > 0 ? "+" : ""}${(r.edge * 100).toFixed(1)}` : "—"}
                   </span>
                 </div>
+                <span
+                  className="tnum text-right text-[10px] font-bold"
+                  style={{ color: solido ? "var(--color-bright)" : "var(--color-dim)" }}
+                  title={solido ? "Supera el listón" : `No llega a ${report.requiredSigma}σ: cabe dentro del azar`}
+                >
+                  {Number.isFinite(r.sigma) ? r.sigma.toFixed(1) : "—"}
+                </span>
                 <span className="tnum text-right text-[10px] text-[var(--color-bright)]">
                   {Number.isFinite(r.hitRate) ? `${Math.round(r.hitRate * 100)}%` : "—"}
                 </span>
@@ -151,8 +165,13 @@ export default function IndicatorScorePanel({ api }: { api: MarketApi }) {
         <p className="font-mono text-[8px] leading-relaxed text-[var(--color-dim)]">
           <b className="text-[var(--color-muted)]">Acierta</b> es el porcentaje bruto y engaña por sí solo.{" "}
           <b className="text-[var(--color-muted)]">Base</b> es lo que habría acertado sin ninguna habilidad, dada la
-          dirección que predijo. La <b className="text-[var(--color-muted)]">ventaja</b> es la resta, y es lo único que
-          mide aportación real. Sin look-ahead: cada voto se emite viendo solo el pasado.
+          dirección que predijo. La <b className="text-[var(--color-muted)]">ventaja</b> es la resta — pero tampoco vale
+          sola: con cien llamadas, cinco puntos de ventaja son un solo{" "}
+          <b className="text-[var(--color-muted)]">σ</b>, o sea ruido. Solo se colorea lo que supera el listón
+          {report && Number.isFinite(report.requiredSigma) ? ` de ${report.requiredSigma}σ` : ""}, el necesario para
+          coronar al mejor de varios candidatos. Los sigmas descuentan que las ventanas se solapan: con horizonte{" "}
+          {report ? report.horizon : horizon} y paso 3 cada movimiento se cuenta varias veces, y esas repeticiones no
+          son datos nuevos. Sin look-ahead: cada voto se emite viendo solo el pasado.
         </p>
       </footer>
     </Card>
