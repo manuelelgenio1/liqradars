@@ -302,13 +302,31 @@ async function main() {
     await sleep(250); // no castigar las APIs públicas
   }
 
-  const huboDatos = nuevos + cerrados > 0;
-  // Se guarda si hay datos nuevos o si toca dejar constancia de que sigue vivo.
-  const tocaLatido = Date.now() - estado.updatedAt >= LATIDO_MS;
-  guardar(estado, huboDatos);
   const cerradasAhora = estado.obs.filter((o) => o.fwdPct !== undefined && o.fwdPct !== null).length;
+
+  /*
+    UNA SOLA DECISIÓN.
+
+    Antes esto estaba calculado dos veces: una para el mensaje del log y otra,
+    escrita a mano, para la salida que lee el flujo de trabajo. Se
+    desincronizaron — el log decía "se guarda igual (latido)" mientras la
+    salida decía `changed=false`, así que el grabador estuvo diez horas sin
+    dejar constancia mientras afirmaba lo contrario.
+
+    Ahora hay una variable y se usa en los dos sitios. No pueden discrepar.
+  */
+  const huboDatos = nuevos + cerrados > 0;
+  const tocaLatido = Date.now() - estado.updatedAt >= LATIDO_MS;
+  const hayQueGuardar = huboDatos || tocaLatido;
+  const motivo = huboDatos
+    ? `+${nuevos} nuevas, +${cerrados} cerradas (${cerradasAhora} cerradas de ${estado.obs.length})`
+    : `latido · sin novedad (${cerradasAhora} cerradas de ${estado.obs.length})`;
+
+  guardar(estado, huboDatos);
+
   console.log(
-    `\n${previas} → ${estado.obs.length} observaciones ` +
+    `
+${previas} → ${estado.obs.length} observaciones ` +
     `(+${nuevos} nuevas, +${cerrados} cerradas) · ` +
     `${cerradasAhora} cerradas en total, ${estado.obs.length - cerradasAhora} esperando`
   );
@@ -317,14 +335,16 @@ async function main() {
     (huboDatos ? "se guarda" : tocaLatido ? "sin novedad, se guarda igual (latido)" : "sin novedad, no se guarda")
   );
 
-  // Lo usa el flujo de trabajo para no hacer un commit vacío.
   if (process.env.GITHUB_OUTPUT) {
     writeFileSync(
       process.env.GITHUB_OUTPUT,
-      `changed=${nuevos + cerrados > 0 ? "true" : "false"}\n` +
-      `summary=+${nuevos} nuevas, +${cerrados} cerradas (${cerradasAhora} cerradas de ${estado.obs.length})\n`,
+      `changed=${hayQueGuardar ? "true" : "false"}
+` + `summary=${motivo}
+`,
       { flag: "a" }
     );
+  } else if (!hayQueGuardar) {
+    console.log("(fuera de CI: no se habría hecho commit)");
   }
 }
 
