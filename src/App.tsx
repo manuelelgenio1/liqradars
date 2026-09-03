@@ -5,16 +5,6 @@ import { useSignals } from "./hooks/useSignals";
 import { useLiqStudy } from "./hooks/useLiqStudy";
 import TopBar from "./components/TopBar";
 import ChartTabs from "./components/ChartTabs";
-import LiquidationsPanel from "./components/LiquidationsPanel";
-import AnalysisPanel from "./components/AnalysisPanel";
-import MarketPanel from "./components/MarketPanel";
-import OrderBookPanel from "./components/OrderBookPanel";
-import ValidationPanel from "./components/ValidationPanel";
-import IndicatorScorePanel from "./components/IndicatorScorePanel";
-import LiqStudyPanel from "./components/LiqStudyPanel";
-import FindingsPanel from "./components/FindingsPanel";
-import SignalPanel from "./components/SignalPanel";
-import JournalPanel from "./components/JournalPanel";
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -53,61 +43,24 @@ function Dashboard() {
   const liq = useLiqStudy(api);
   const sig = useSignals(api, confluence);
 
+  /*
+    Una sola columna: el reparto lo decide ChartTabs.
+
+    Antes esto era una rejilla de 12 columnas con NUEVE paneles colgando
+    debajo del gráfico, y App decidía a la vez qué se enseña y dónde cae cada
+    cosa. Ahora App solo monta los datos y la barra; qué panel vive en qué
+    pestaña es asunto de ChartTabs, que es quien sabe en qué pestaña estás.
+  */
   return (
     <div className="relative min-h-screen">
       <div className="backdrop" aria-hidden />
       <TopBar api={api} />
 
-      {/*
-        Rejilla de 12 columnas: el gráfico manda (8 col), la columna de
-        contexto acompaña (4 col), y las liquidaciones y el libro quedan
-        debajo repartidos. En pantallas medianas cae a 2 columnas y en
-        móvil a una sola, sin que ningún panel se rompa.
-      */}
-      <main className="mx-auto grid max-w-[1680px] grid-cols-1 gap-3 px-3 py-3 md:grid-cols-2 lg:px-5 lg:py-4 xl:grid-cols-12">
-        <div className="md:col-span-2 xl:col-span-8">
-          <ChartTabs api={api} />
-        </div>
-
-        <div className="flex flex-col gap-3 md:col-span-2 xl:col-span-4">
-          <SignalPanel api={api} sig={sig} />
-          <AnalysisPanel api={api} confluence={confluence} />
-        </div>
-
-        <div className="md:col-span-1 xl:col-span-5">
-          <LiquidationsPanel api={api} />
-        </div>
-
-        <div className="md:col-span-1 xl:col-span-3">
-          <OrderBookPanel api={api} />
-        </div>
-
-        <div className="md:col-span-2 xl:col-span-4">
-          <MarketPanel api={api} />
-        </div>
-
-        <div className="md:col-span-2 xl:col-span-7">
-          <JournalPanel api={api} sig={sig} />
-        </div>
-
-        <div className="md:col-span-1 xl:col-span-5">
-          <ValidationPanel api={api} />
-        </div>
-
-        <div className="md:col-span-1 xl:col-span-7">
-          <IndicatorScorePanel api={api} />
-        </div>
-
-        <div className="md:col-span-2 xl:col-span-5">
-          <LiqStudyPanel api={api} liq={liq} />
-        </div>
-
-        <div className="md:col-span-2 xl:col-span-7">
-          <FindingsPanel />
-        </div>
+      <main className="mx-auto max-w-[1680px] px-3 py-3 lg:px-5 lg:py-4">
+        <ChartTabs api={api} sig={sig} confluence={confluence} liq={liq} />
       </main>
 
-      <footer className="border-t border-[var(--color-line)] bg-[rgba(10,14,23,0.6)]">
+      <footer className="mt-6 border-t border-[var(--color-line)] bg-[rgba(10,14,23,0.6)]">
         <div className="mx-auto flex max-w-[1680px] flex-wrap items-center justify-between gap-2 px-4 py-4 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-dim)] lg:px-5">
           <span>LIQRADAR · liquidez y liquidaciones reales</span>
           <span className="normal-case tracking-normal">
