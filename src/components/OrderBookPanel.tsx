@@ -55,7 +55,15 @@ export default function OrderBookPanel({ api }: { api: MarketApi }) {
 
   const { bids, asks, maxSize, maxCum, mid, spreadPct, isWall } = model;
   const imbalance = book!.imbalance;
-  const bidPct = Math.max(0, Math.min(100, 50 + imbalance * 50));
+  /*
+    El desequilibrio es NaN cuando no llegó ningún nivel. Antes en ese caso
+    valía cero, y cero es una lectura REAL —"compras y ventas igualadas"—, así
+    que el panel anunciaba una medición que nadie había hecho. Ahora se
+    distingue: sin dato no se pinta dirección ni porcentaje.
+  */
+  const hayDato = Number.isFinite(imbalance);
+  const compra = hayDato && imbalance >= 0;
+  const bidPct = hayDato ? Math.max(0, Math.min(100, 50 + imbalance * 50)) : 50;
 
   const Row = ({ level, side }: { level: (typeof bids)[number]; side: "bid" | "ask" }) => {
     const wall = isWall(level.size);
@@ -121,7 +129,7 @@ export default function OrderBookPanel({ api }: { api: MarketApi }) {
         ))}
 
         <div className="flex items-center gap-3 border-y border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2">
-          <span className={`tnum text-base font-bold ${imbalance >= 0 ? "up" : "down"}`}>
+          <span className={`tnum text-base font-bold ${!hayDato ? "" : compra ? "up" : "down"}`}>
             {f.price(mid, api.spec.decimals)}
           </span>
           <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--color-dim)]">
@@ -129,10 +137,10 @@ export default function OrderBookPanel({ api }: { api: MarketApi }) {
           </span>
           <span
             className={`ml-auto font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${
-              imbalance >= 0 ? "up" : "down"
+              !hayDato ? "text-[var(--color-dim)]" : compra ? "up" : "down"
             }`}
           >
-            {imbalance >= 0 ? "presión compradora" : "presión vendedora"}
+            {!hayDato ? "sin profundidad" : compra ? "presión compradora" : "presión vendedora"}
           </span>
         </div>
 
@@ -144,12 +152,17 @@ export default function OrderBookPanel({ api }: { api: MarketApi }) {
       <div className="mt-auto border-t border-[var(--color-line-soft)] px-4 py-3">
         <div className="mb-2 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
           <span>Desequilibrio del libro</span>
-          <span className={`tnum font-bold ${imbalance >= 0 ? "up" : "down"}`}>
-            {imbalance >= 0 ? "+" : ""}
-            {(imbalance * 100).toFixed(1)}%
+          <span
+            className={`tnum font-bold ${!hayDato ? "text-[var(--color-dim)]" : compra ? "up" : "down"}`}
+            title={hayDato ? undefined : "El libro llegó vacío. Un 0 % aquí significaría equilibrio real, así que no se muestra."}
+          >
+            {!hayDato ? "sin dato" : `${compra ? "+" : ""}${(imbalance * 100).toFixed(1)}%`}
           </span>
         </div>
-        <div className="relative h-2 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+        <div
+          className="relative h-2 overflow-hidden rounded-full bg-[var(--color-surface-3)]"
+          style={hayDato ? undefined : { opacity: 0.25 }}
+        >
           <div
             className="absolute inset-y-0 left-0 transition-all duration-500"
             style={{ width: `${bidPct}%`, background: "linear-gradient(90deg, rgba(33,212,160,0.3), var(--color-up))" }}

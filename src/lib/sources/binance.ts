@@ -74,14 +74,27 @@ export async function fetchOrderBook(symbol: string, venue: Venue = "perp"): Pro
       return { price: Number(p), size, cumulative };
     });
   };
-  const bids = build(j.bids);
-  const asks = build(j.asks);
+  const bids = build(j.bids ?? []);
+  const asks = build(j.asks ?? []);
   const bidSum = bids.at(-1)?.cumulative ?? 0;
   const askSum = asks.at(-1)?.cumulative ?? 0;
+
+  /*
+    Sin libro, el desequilibrio es NaN — nunca cero.
+
+    Cero significa "compras y ventas perfectamente igualadas", que es una
+    lectura real y bastante informativa. Devolverlo cuando en realidad no ha
+    llegado ningún nivel convierte la ausencia de datos en una medición, y el
+    panel pintaría un "0,0 % · presión compradora" que nadie ha medido.
+
+    `fetchFunding`, aquí al lado, ya devolvía null cuando fallaba. Esto solo
+    pone al libro a la misma altura.
+  */
+  const total = bidSum + askSum;
   return {
     bids,
     asks,
-    imbalance: bidSum + askSum > 0 ? (bidSum - askSum) / (bidSum + askSum) : 0,
+    imbalance: total > 0 ? (bidSum - askSum) / total : NaN,
     ts: Date.now(),
   };
 }

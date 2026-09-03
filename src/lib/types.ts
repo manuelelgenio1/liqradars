@@ -38,7 +38,11 @@ export interface BookLevel {
 export interface OrderBook {
   bids: BookLevel[];
   asks: BookLevel[];
-  /** (bids − asks) / (bids + asks) sobre la profundidad visible */
+  /**
+   * (bids − asks) / (bids + asks) sobre la profundidad visible.
+   * NaN si no llegó ningún nivel: cero sería una lectura real ("equilibrio
+   * perfecto") y confundiría la ausencia de datos con una medición.
+   */
   imbalance: number;
   ts: number;
 }

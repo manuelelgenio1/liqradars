@@ -9,15 +9,24 @@ export class HttpError extends Error {
   }
 }
 
+/*
+  `setTimeout` a secas, no `window.setTimeout`.
+
+  No aportaba nada —el tipo del identificador se resuelve igual con
+  `ReturnType`— y a cambio ataba el módulo al navegador: cualquier prueba o
+  script en Node reventaba con "window is not defined" ANTES de llegar a la
+  red. Eso dejó sin cobertura los caminos de descarga, que son justo por donde
+  entra la mitad de los datos de esta app.
+*/
 export async function getJson<T>(url: string, timeoutMs = 9000): Promise<T> {
   const ctrl = new AbortController();
-  const id = window.setTimeout(() => ctrl.abort(), timeoutMs);
+  const id: ReturnType<typeof setTimeout> = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal });
     if (!r.ok) throw new HttpError(r.status, url);
     return (await r.json()) as T;
   } finally {
-    window.clearTimeout(id);
+    clearTimeout(id);
   }
 }
 
