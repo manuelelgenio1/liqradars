@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLatest } from "./useLatest";
+import { useNow } from "./useNow";
 import * as binance from "../lib/sources/binance";
 import { alignment, computeLevels, type Alignment, type TradeLevels } from "../lib/levels";
 import { fetchUniverse, type UniverseEntry } from "../lib/universe";
 import { TIMEFRAMES, type Candle } from "../lib/types";
+import { STOP_ATR, TARGET_ATR } from "../lib/levels";
+import {
+  evaluateSignal,
+  maybeBirth,
+  prune,
+  type DeskSignal,
+  type SignalState,
+} from "../lib/desksignals";
+import * as storage from "../lib/storage";
 
 /*
   Mesa de operaciones.
@@ -35,7 +45,11 @@ export interface ScanRow {
   error: boolean;
 }
 
+const LS_SIGNALS = "liqradar:desksignals:v1";
+
 export interface TradingDesk {
+  /** señales vivas del par activo, con su edad y frescura */
+  signals: SignalState[];
   /** niveles del par activo, una fila por temporalidad */
   rows: TradeLevels[];
   align: Alignment;
@@ -55,6 +69,9 @@ export interface TradingDesk {
 }
 
 export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
+  // Un reloj propio: sin él los contadores solo avanzarían cuando algo más
+  // provocara un repintado.
+  const now = useNow(1000);
   const [failed, setFailed] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -130,6 +147,79 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
 
   const align = useMemo(() => alignment(rows), [rows]);
 
+  /*
+    ---------- señales que nacen, envejecen y caducan ----------
+
+    Se guardan en disco porque la EDAD es el dato: si se perdieran al recargar
+    la página, el contador volvería a cero y no mediría nada.
+
+    Nace una solo cuando el consenso de esa temporalidad CAMBIA de lado.
+    Mientras diga lo mismo es la misma señal envejeciendo.
+  */
+  const [signals, setSignals] = useState<DeskSignal[]>(() => storage.read<DeskSignal[]>(LS_SIGNALS, []));
+  const rowsRef = useLatest(rows);
+  const signalsRef = useLatest(signals);
+  const symbolRef = useLatest(symbol);
+  const priceRef = useLatest(livePrice);
+
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      const sym = symbolRef.current;
+      const price = priceRef.current;
+      if (!(price > 0)) return;
+
+      // primero se retiran las caducadas, luego se mira si nace alguna
+      let vivas = prune(signalsRef.current, sym, price, now);
+      let cambio = vivas.length !== signalsRef.current.length;
+
+      for (const r of rowsRef.current) {
+        if (!r.ready) continue;
+        const previa = vivas.find((s) => s.timeframe === r.timeframe);
+        const nueva = maybeBirth(
+          {
+            symbol: sym,
+            timeframe: r.timeframe,
+            tfMinutes: TIMEFRAMES.find((t) => t.key === r.timeframe)?.minutes ?? 60,
+            side: r.side,
+            price: r.price,
+            atr: r.atr,
+            strength: r.strength,
+            stopAtr: STOP_ATR,
+            targetAtr: TARGET_ATR,
+          },
+          previa,
+          now
+        );
+        if (nueva) {
+          vivas = [nueva, ...vivas.filter((s) => s.timeframe !== r.timeframe)];
+          cambio = true;
+        }
+      }
+
+      if (cambio) {
+        storage.write(LS_SIGNALS, vivas);
+        setSignals(vivas);
+      }
+    };
+
+    const id = window.setInterval(tick, 5_000);
+    tick();
+    return () => window.clearInterval(id);
+    // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
+    // siempre el mismo, así que incluirlos NO relanza el efecto.
+  }, [priceRef, rowsRef, signalsRef, symbolRef]);
+
+  // El estado de cada señal se deriva del precio: no se guarda.
+  const signalStates = useMemo(
+    () =>
+      signals
+        .map((s) => evaluateSignal(s, livePrice, now))
+        .filter((s) => s.expiredReason === null)
+        .sort((a, b) => a.signal.tfMinutes - b.signal.tfMinutes),
+    [signals, livePrice, now]
+  );
+
   // ---------- universo ----------
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +282,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   }, [scanTfRef, universeRef]);
 
   return {
+    signals: signalStates,
     rows,
     align,
     loading,

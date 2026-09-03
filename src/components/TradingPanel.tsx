@@ -6,6 +6,8 @@ import { ROUND_TRIP_COST_PCT } from "../lib/signals";
 import { decimalsFor } from "../lib/universe";
 import * as f from "../lib/format";
 import { Tag } from "./ui";
+import type { SignalState } from "../lib/desksignals";
+import { ENFRIANDO_MAX_R, FRESCA_MAX_R } from "../lib/desksignals";
 
 /* ============================================================
    Mesa de operaciones.
@@ -88,6 +90,91 @@ function Fila({ r, dec, activa, onClick }: { r: TradeLevels; dec: number; activa
   );
 }
 
+const COLOR_FRESCURA: Record<SignalState["freshness"], string> = {
+  fresca: "var(--color-up)",
+  enfriando: "var(--color-warn)",
+  tarde: "var(--color-down)",
+  caducada: "var(--color-dim)",
+};
+
+const TEXTO_ENTRADA: Record<SignalState["freshness"], string> = {
+  fresca: "SE PUEDE ENTRAR",
+  enfriando: "SE ESTÁ ENFRIANDO",
+  tarde: "YA ES TARDE",
+  caducada: "CADUCADA",
+};
+
+/*
+  Una señal viva, con su edad y —lo que de verdad decide— cuánto se ha alejado
+  el precio de donde nació.
+
+  Los niveles se fijaron al nacer y no se mueven. Cada punto que recorre el
+  precio hacia el objetivo es beneficio que ya no vas a cobrar, mientras el
+  stop sigue donde estaba. Por eso lo que se enseña es el R:R QUE TENDRÍAS
+  AHORA, no el que tenía cuando apareció: es la misma señal y ya no es la
+  misma operación.
+*/
+function SenalViva({ s, dec }: { s: SignalState; dec: number }) {
+  const col = COLOR_FRESCURA[s.freshness];
+  const largo = s.signal.side === "long";
+  const progreso = Math.min(1, Math.max(0, s.movedR / ENFRIANDO_MAX_R));
+
+  return (
+    <div className="border-b border-[var(--color-line-soft)] px-3.5 py-2.5 last:border-b-0">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="font-mono text-[10px] font-bold text-[var(--color-body)]">{s.signal.timeframe}</span>
+        <span
+          className="font-mono text-[10px] font-bold"
+          style={{ color: largo ? "var(--color-up)" : "var(--color-down)" }}
+        >
+          {largo ? "LARGO" : "CORTO"}
+        </span>
+        <span className="tnum font-mono text-[9px] text-[var(--color-dim)]" title="Tiempo desde que apareció">
+          hace {f.countdown(s.ageMs)}
+        </span>
+        <span className="ml-auto font-mono text-[9px] font-bold" style={{ color: col }}>
+          {TEXTO_ENTRADA[s.freshness]}
+        </span>
+      </div>
+
+      {/* cuánto se ha alejado el precio de la entrada original */}
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--color-surface-3)]">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${progreso * 100}%`, background: col }}
+        />
+      </div>
+
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[8.5px] text-[var(--color-dim)]">
+        <span title="Precio en el instante en que apareció la señal">
+          nació en <b className="text-[var(--color-muted)]">{f.price(s.signal.entry, dec)}</b>
+        </span>
+        <span
+          style={{ color: s.movedR > FRESCA_MAX_R ? col : undefined }}
+          title="Cuánto ha recorrido el precio hacia el objetivo, en múltiplos de riesgo"
+        >
+          recorrido <b>{s.movedR >= 0 ? "+" : ""}{s.movedR.toFixed(2)}R</b>
+        </span>
+        <span title="Riesgo/beneficio que tendrías ENTRANDO AHORA, con los mismos stop y objetivo">
+          R:R ahora <b style={{ color: s.rrNow < 1 ? "var(--color-down)" : "var(--color-muted)" }}>
+            {Number.isFinite(s.rrNow) ? s.rrNow.toFixed(2) : "—"}
+          </b>
+        </span>
+        <span title="Caduca a las 48 velas de su temporalidad">
+          caduca en <b className="text-[var(--color-muted)]">{f.countdown(s.remainingMs)}</b>
+        </span>
+      </div>
+
+      {s.freshness === "tarde" && (
+        <p className="mt-1.5 font-mono text-[8px] leading-relaxed text-[var(--color-down)]">
+          El precio ya recorrió {s.movedR.toFixed(2)}R desde la entrada. Entrando ahora arriesgarías más de lo que
+          queda por ganar — la señal sigue viva, pero la operación buena ya pasó.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function TradingPanel({ api, desk }: { api: MarketApi; desk: TradingDesk }) {
   const ahora = useNow(30_000);
   const dec = api.spec.decimals;
@@ -154,6 +241,24 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
               del riesgo. Es donde el coste estorba menos, no donde la señal acierte más.
             </p>
           </div>
+        )}
+
+        {/* ---------- señales vivas ---------- */}
+        <div className="border-b border-[var(--color-line-soft)] px-3.5 py-1.5">
+          <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-[var(--color-dim)]">
+            Señales vivas {desk.signals.length > 0 && `· ${desk.signals.length}`}
+          </span>
+        </div>
+        {desk.signals.length === 0 ? (
+          <div className="border-b border-[var(--color-line-soft)] px-3.5 py-2.5">
+            <p className="font-mono text-[9px] leading-relaxed text-[var(--color-muted)]">
+              Ninguna ahora mismo. Nace una cuando el consenso de alguna temporalidad{" "}
+              <b className="text-[var(--color-bright)]">cambia de lado</b> — mientras siga diciendo lo mismo es la
+              misma señal envejeciendo, no una nueva.
+            </p>
+          </div>
+        ) : (
+          desk.signals.map((s) => <SenalViva key={s.signal.id} s={s} dec={dec} />)
         )}
 
         {/* ---------- tabla de marcos ---------- */}
