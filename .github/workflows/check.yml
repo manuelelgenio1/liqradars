@@ -1,0 +1,54 @@
+# Tipos y tests en cada cambio.
+#
+# Importa más de lo que parece en este proyecto: casi todo lo que hay aquí son
+# cálculos estadísticos cuyos fallos NO se ven en pantalla. Un ±DI mal
+# escalado, una muestra que se cuenta doble o un coste que no se descuenta dan
+# números perfectamente creíbles y perfectamente falsos. Los tests son la
+# única barrera, así que tienen que correr solos.
+#
+# No se ejecuta cuando el grabador guarda datos: tocar data/liqstudy.json no
+# puede romper el código, y gastar minutos en eso cada hora sería absurdo.
+name: Tipos y tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tipos y tests
+        run: npm run check
+
+      - name: Que el paquete siga construyéndose
+        run: npm run build
+
+      - name: Ninguna credencial en el paquete público
+        run: |
+          # El paquete va al navegador de cualquiera. Una clave aquí es una
+          # clave publicada, y no habria forma de retirarla.
+          if grep -rniE '(api[_-]?key|secret|token)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9_/+-]{12,}' dist/assets/*.js; then
+            echo "::error::Hay algo con pinta de credencial en el paquete"
+            exit 1
+          fi
+          echo "paquete limpio"

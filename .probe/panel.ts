@@ -42,10 +42,20 @@ const SYMS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT"]
 const MTF: [string, string, number][] = [
   ["5m", "5m", 5], ["15m", "15m", 15], ["1H", "1h", 60], ["4H", "4h", 240], ["1D", "1d", 1440],
 ];
-/** Temporalidades sobre las que se opera. */
-const ACTIVAS = ["5m", "15m", "1H"];
+/*
+  Configurable, porque la pregunta cambia según el marco:
 
-const DIAS = 28; // el histórico de OI son 30 días: no se puede estirar más
+    DIAS=28  ACTIVAS=5m,15m,1H   → el 80 % del peso, muestra corta por marco
+    DIAS=180 ACTIVAS=1H,4H,1D    → marcos anchos, pero SIN el componente de
+                                   apalancamiento antes de los últimos 30 días
+
+  El histórico de OI de Binance son 30 días y no se puede estirar. Más allá,
+  `oiDelta1hPct` entra como NaN y la pata de apalancamiento aporta cero — que
+  es exactamente lo que hace la app cuando ese endpoint falla, así que no se
+  está simulando nada que no pueda pasar en producción.
+*/
+const ACTIVAS = (process.env.ACTIVAS ?? "5m,15m,1H").split(",");
+const DIAS = Number(process.env.DIAS ?? 28);
 const MAX_PREFIX = 400;
 const WARMUP = 200;
 /** Ventana para considerar dos señales el mismo suceso de mercado. */
@@ -53,6 +63,15 @@ const EVENTO_MS = 30 * 60_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const media = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+
+/** Descarga en tandas: con 180 días por símbolo, en serie tardaría horas. */
+async function enTandas<A, B>(items: A[], ancho: number, fn: (a: A) => Promise<B>): Promise<B[]> {
+  const out: B[] = [];
+  for (let i = 0; i < items.length; i += ancho) {
+    out.push(...(await Promise.all(items.slice(i, i + ancho).map(fn))));
+  }
+  return out;
+}
 
 // ---------------- descarga ----------------
 
@@ -306,10 +325,12 @@ async function main() {
     const mtf = new Map<string, Candle[]>();
     for (const [tf, itv] of MTF) {
       // margen extra hacia atrás para que las temporalidades altas tengan calentamiento
-      mtf.set(tf, await klines(sym, itv, desde - 300 * 864e5 / (tf === "1D" ? 1 : 20), hasta));
+      // 300 velas de calentamiento por marco, en milisegundos reales
+      const min = MTF.find((m) => m[0] === tf)![2];
+      mtf.set(tf, await klines(sym, itv, desde - 300 * min * 60_000, hasta));
     }
     const ctx: Contexto = {
-      book: (await Promise.all(fechas.map((d) => bookDay(sym, d)))).flat().sort((a, b) => a.t - b.t),
+      book: (await enTandas(fechas, 8, (d) => bookDay(sym, d))).flat().sort((a, b) => a.t - b.t),
       fund: await funding(sym),
       oi: await oiDelta(sym),
       mtf,
