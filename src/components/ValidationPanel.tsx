@@ -120,13 +120,35 @@ export default function ValidationPanel({ api }: { api: MarketApi }) {
               <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">
                 Ventaja
               </div>
+              {/*
+                Solo se colorea si ADEMÁS supera los sigmas. Pintar de verde
+                una ventaja que cabe dentro del azar la vende como hallazgo,
+                que es exactamente lo que este panel hacía.
+              */}
               <div
                 className="tnum mt-1 font-display text-[15px] font-bold"
-                style={{ color: result.edge > 0 ? "var(--color-up)" : "var(--color-down)" }}
+                style={{
+                  color:
+                    Number.isFinite(result.sigma) && Math.abs(result.sigma) > 1.96
+                      ? result.edge > 0
+                        ? "var(--color-up)"
+                        : "var(--color-down)"
+                      : "var(--color-dim)",
+                }}
+                title={
+                  Number.isFinite(result.sigma)
+                    ? `${result.sigma.toFixed(1)}σ · hacen falta 1,96 para que la diferencia no sea ruido`
+                    : "Sin muestra suficiente para medir la significación"
+                }
               >
                 {Number.isFinite(result.edge) ? `${result.edge >= 0 ? "+" : ""}${(result.edge * 100).toFixed(1)} pts` : "—"}
               </div>
-              <div className="mt-0.5 text-[8.5px] text-[var(--color-dim)]">frente al control</div>
+              <div className="mt-0.5 text-[8.5px] text-[var(--color-dim)]">
+                frente al control ·{" "}
+                <b style={{ color: Number.isFinite(result.sigma) && Math.abs(result.sigma) > 1.96 ? "var(--color-bright)" : undefined }}>
+                  {Number.isFinite(result.sigma) ? `${result.sigma.toFixed(1)}σ` : "—"}
+                </b>
+              </div>
             </div>
             <div className="px-3 py-2.5">
               <div className="font-mono text-[8.5px] uppercase tracking-[0.14em] text-[var(--color-dim)]">Muestra</div>

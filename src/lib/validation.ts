@@ -30,6 +30,8 @@ export interface BacktestResult {
   hitRate: number;
   controlHitRate: number;
   edge: number;
+  /** sigmas de esa ventaja. Sin esto, `edge` engaña. */
+  sigma: number;
   reversalRate: number;
   verdict: "SEÑAL" | "RUIDO" | "INDETERMINADO" | "DATOS INSUFICIENTES";
   note: string;
@@ -76,6 +78,7 @@ export function runBacktest(
     hitRate: NaN,
     controlHitRate: NaN,
     edge: NaN,
+    sigma: NaN,
     reversalRate: NaN,
     verdict: "DATOS INSUFICIENTES",
     note,
@@ -147,11 +150,34 @@ export function runBacktest(
   const edge = hitRate - controlHitRate;
   const reversalRate = hit ? reverted / hit : NaN;
 
+  /*
+    Sigmas de la diferencia entre dos proporciones independientes.
+
+    Sin esto, el veredicto era `edge >= 0,1` a secas. Con 60 pruebas y 60
+    controles, el error típico de esa diferencia ronda el 9 %: diez puntos son
+    poco más de UN sigma, algo que el azar produce sin parar. El panel habría
+    cantado "SEÑAL" sobre ruido casi siempre.
+
+    Es el mismo fallo que ya aparecio en `computeStats` y en el panel de
+    acierto por indicador. Aqui estaba tambien.
+  */
+  const se =
+    tested > 0 && ctrlTested > 0
+      ? Math.sqrt(
+          (hitRate * (1 - hitRate)) / tested + (controlHitRate * (1 - controlHitRate)) / ctrlTested
+        )
+      : NaN;
+  const sigma = Number.isFinite(edge) && se > 0 ? edge / se : NaN;
+
   let verdict: BacktestResult["verdict"];
   let note: string;
-  if (edge >= 0.1) {
+  if (edge >= 0.1 && sigma > 1.96) {
     verdict = "SEÑAL";
-    note = `Los niveles con liquidaciones previas se tocan ${Math.round(edge * 100)} pts más que niveles al azar a la misma distancia.`;
+    note = `Los niveles con liquidaciones previas se tocan ${Math.round(edge * 100)} pts más que niveles al azar a la misma distancia, y la diferencia aguanta la prueba (${sigma.toFixed(1)}σ).`;
+  } else if (edge >= 0.1) {
+    // El caso peligroso: parece un hallazgo y no lo es.
+    verdict = "INDETERMINADO";
+    note = `Los niveles con liquidaciones se tocan ${Math.round(edge * 100)} pts más que el control, pero eso son solo ${Number.isFinite(sigma) ? sigma.toFixed(1) : "—"}σ sobre ${tested} pruebas: cabe de sobra dentro del azar. Hacen falta más niveles.`;
   } else if (edge <= -0.05) {
     verdict = "RUIDO";
     note = "Los niveles con liquidaciones previas se tocan MENOS que niveles al azar equivalentes: aquí no hay ventaja.";
@@ -160,5 +186,5 @@ export function runBacktest(
     note = `Diferencia de ${(edge * 100).toFixed(0)} pts frente al control emparejado por distancia: sin ventaja medible.`;
   }
 
-  return { tested, controls: ctrlTested, hitRate, controlHitRate, edge, reversalRate, verdict, note };
+  return { tested, controls: ctrlTested, hitRate, controlHitRate, edge, sigma, reversalRate, verdict, note };
 }

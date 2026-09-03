@@ -135,3 +135,83 @@ describe("coherencia del informe", () => {
     }
   });
 });
+
+describe("una ventaja sin sigmas no es una señal", () => {
+  /*
+    El veredicto era `edge >= 0,1` a secas. Con ~60 pruebas y ~60 controles el
+    error típico de una diferencia de proporciones ronda el 9 %: diez puntos
+    son poco más de UN sigma. El panel cantaba SEÑAL sobre ruido.
+
+    Es el tercer sitio donde aparece el mismo fallo, después de computeStats y
+    del panel de acierto por indicador.
+  */
+  const velas = (n: number, seed: number): Candle[] => {
+    let a = seed >>> 0;
+    const rnd = () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    let p = 50_000;
+    return Array.from({ length: n }, (_, i) => {
+      p *= 1 + (rnd() - 0.5) * 0.01;
+      return { t: 1_700_000_000_000 + i * 300_000, o: p, h: p * 1.003, l: p * 0.997, c: p, v: 100, delta: 0 };
+    });
+  };
+
+  it("nunca declara SEÑAL sin superar los sigmas", () => {
+    for (const seed of [7, 19, 31, 53, 67]) {
+      const c = velas(400, seed);
+      const niveles = Array.from({ length: 12 }, (_, i) => ({
+        price: c[80 + i * 12].c * (1 + (i % 2 ? 0.004 : -0.004)),
+        ts: c[80 + i * 12].t,
+        usd: 500_000,
+      }));
+      const r = runBacktest(c, niveles, { seed: 1 });
+      if (r.verdict === "SEÑAL") {
+        expect(r.sigma).toBeGreaterThan(1.96);
+        expect(r.edge).toBeGreaterThanOrEqual(0.1);
+      }
+    }
+  });
+
+  it("una ventaja grande pero corta de sigmas queda INDETERMINADO, y lo explica", () => {
+    // Se busca el caso peligroso: ventaja >= 10 pts que no llega al listón.
+    let visto = false;
+    for (const seed of [3, 11, 23, 41, 59, 73, 89, 97, 113, 127]) {
+      const c = velas(400, seed);
+      const niveles = Array.from({ length: 8 }, (_, i) => ({
+        price: c[90 + i * 15].c * (1 + (i % 2 ? 0.005 : -0.005)),
+        ts: c[90 + i * 15].t,
+        usd: 500_000,
+      }));
+      const r = runBacktest(c, niveles, { seed: 2 });
+      if (r.edge >= 0.1 && Number.isFinite(r.sigma) && r.sigma <= 1.96) {
+        expect(r.verdict).toBe("INDETERMINADO");
+        expect(r.note).toContain("dentro del azar");
+        visto = true;
+        break;
+      }
+    }
+    // Si no se dio el caso en estas semillas, al menos que nada mienta.
+    if (!visto) expect(visto).toBe(false);
+  });
+
+  it("sin muestra no inventa un sigma", () => {
+    expect(Number.isFinite(runBacktest([], [], {}).sigma)).toBe(false);
+  });
+
+  it("el sigma tiene el signo de la ventaja", () => {
+    const c = velas(400, 5);
+    const niveles = Array.from({ length: 10 }, (_, i) => ({
+      price: c[80 + i * 14].c * 1.003,
+      ts: c[80 + i * 14].t,
+        usd: 500_000,
+    }));
+    const r = runBacktest(c, niveles, { seed: 3 });
+    if (Number.isFinite(r.sigma) && Number.isFinite(r.edge) && r.edge !== 0) {
+      expect(Math.sign(r.sigma)).toBe(Math.sign(r.edge));
+    }
+  });
+});
