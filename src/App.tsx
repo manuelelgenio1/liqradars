@@ -4,7 +4,7 @@ import { useConfluence } from "./hooks/useConfluence";
 import { useSignals } from "./hooks/useSignals";
 import { useLiqStudy } from "./hooks/useLiqStudy";
 import TopBar from "./components/TopBar";
-import PriceChart from "./components/PriceChart";
+import ChartTabs from "./components/ChartTabs";
 import LiquidationsPanel from "./components/LiquidationsPanel";
 import AnalysisPanel from "./components/AnalysisPanel";
 import MarketPanel from "./components/MarketPanel";
@@ -65,7 +65,7 @@ function Dashboard() {
       */}
       <main className="mx-auto grid max-w-[1680px] grid-cols-1 gap-3 px-3 py-3 md:grid-cols-2 lg:px-5 lg:py-4 xl:grid-cols-12">
         <div className="md:col-span-2 xl:col-span-8">
-          <PriceChart api={api} />
+          <ChartTabs api={api} />
         </div>
 
         <div className="flex flex-col gap-3 md:col-span-2 xl:col-span-4">
