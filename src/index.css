@@ -160,3 +160,94 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   ESCALA TIPOGRÁFICA
+   
+   El problema del diseño anterior no era la paleta: era que TODO estaba
+   a 8-10 px y en monoespaciada, así que nada destacaba sobre nada. Un
+   panel donde el precio, su etiqueta y una nota al pie pesan lo mismo
+   obliga a leerlo entero para encontrar el dato.
+   
+   Reglas:
+   · MONOESPACIADA solo para números. Es para que las cifras se alineen
+     en columna, no un efecto de "terminal".
+   · La prosa va en la tipografía de texto y en gris bajo: está para
+     cuando haga falta, no para competir con los datos.
+   · El tamaño indica importancia. Si algo es grande es porque hay que
+     mirarlo primero.
+   ============================================================ */
+
+/* el dato principal de un bloque: se lee de un vistazo */
+.dato-xl {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-white);
+}
+
+.dato-l {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-bright);
+}
+
+.dato-m {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-body);
+}
+
+/* etiqueta de un dato: presente pero apartada */
+.etiqueta {
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--color-dim);
+}
+
+/* título de sección */
+.seccion {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-muted);
+}
+
+/* prosa explicativa: legible, pero claramente en segundo plano */
+.nota {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.nota-sm {
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--color-dim);
+}
+
+/* bloque de señal: tarjeta con aire, no una fila de tabla */
+.senal {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.012);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.senal:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
