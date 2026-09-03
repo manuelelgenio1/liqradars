@@ -14,7 +14,7 @@ const T = 1_800_000_000_000;
 /** Largo desde 100: arriesga 2, gana 4. */
 const larga = (over: Partial<DeskSignal> = {}): DeskSignal => ({
   id: "s1", symbol: "BTCUSDT", timeframe: "1H", tfMinutes: 60, side: "long",
-  bornAt: T, entry: 100, stop: 98, target: 104, strength: 0.7, ...over,
+  bornAt: T, entry: 100, stop: 98, target: 104, strength: 0.7, controlSide: "long", ...over,
 });
 
 const corta = (over: Partial<DeskSignal> = {}): DeskSignal =>

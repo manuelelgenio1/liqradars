@@ -7,6 +7,7 @@ import { ENFRIANDO_MAX_R, FRESCA_MAX_R, type SignalState } from "../lib/desksign
 import { ROUND_TRIP_COST_PCT } from "../lib/signals";
 import { decimalsFor } from "../lib/universe";
 import * as f from "../lib/format";
+import { MIN_SAMPLE, type LedgerStats } from "../lib/deskledger";
 
 /* ============================================================
    Mesa de operaciones.
@@ -179,6 +180,129 @@ function FilaMarco({ r, dec, activa, onClick }: { r: TradeLevels; dec: number; a
   );
 }
 
+// ---------------- registro de aciertos ----------------
+
+const COLOR_VEREDICTO: Record<LedgerStats["verdict"], string> = {
+  "SIN DATOS": "var(--color-dim)",
+  "MUESTRA CORTA": "var(--color-muted)",
+  "SIN VENTAJA": "var(--color-warn)",
+  PIERDE: "var(--color-down)",
+  VENTAJA: "var(--color-up)",
+};
+
+/*
+  El libro de cuentas de la mesa.
+
+  La mesa emite señales, así que rinde cuentas de ellas. Se cierran contra
+  velas reales con una regla, no con un criterio, y arrastran su moneda al
+  aire para que el porcentaje signifique algo.
+
+  Se desglosa por temporalidad porque el coste no es el mismo: en 5 m la
+  comisión se lleva medio R y en diario dos centésimas. Una sola cifra global
+  escondería justo lo que más decide.
+*/
+function Registro({ desk }: { desk: TradingDesk }) {
+  const s = desk.ledgerStats;
+  const col = COLOR_VEREDICTO[s.verdict];
+
+  return (
+    <div className="rounded-xl border border-[var(--color-line)] bg-[rgba(15,21,34,0.55)]">
+      <div className="flex items-center gap-3 border-b border-[var(--color-line-soft)] px-4 py-3">
+        <span className="seccion">Aciertos de estas señales</span>
+        <span className="ml-auto font-display text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: col }}>
+          {s.verdict}
+        </span>
+        {s.total > 0 && (
+          <button
+            onClick={desk.clearLedger}
+            className="etiqueta transition-colors hover:text-[var(--color-down)]"
+            title="Borra el registro y empieza de cero"
+          >
+            borrar
+          </button>
+        )}
+      </div>
+
+      {s.total === 0 ? (
+        <div className="px-4 py-4">
+          <p className="nota">{s.note}</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3.5 sm:grid-cols-4">
+            <Dato label="Esperanza neta" title="Media de R por señal, ya descontada la comisión. Es LA cifra.">
+              <span
+                className="dato-l"
+                style={{ color: s.expectancyNet > 0 ? "var(--color-up)" : "var(--color-down)" }}
+              >
+                {s.expectancyNet > 0 ? "+" : ""}
+                {s.expectancyNet.toFixed(2)}R
+              </span>
+            </Dato>
+            <Dato label="Aciertos" title="Porcentaje bruto. Engaña por sí solo: mira la esperanza.">
+              <span className="dato-l">{Math.round(s.hitRate * 100)}%</span>
+            </Dato>
+            <Dato label="Moneda al aire" title="Lo que daban esos mismos niveles lanzando una moneda">
+              <span className="dato-l" style={{ color: "var(--color-muted)" }}>
+                {Number.isFinite(s.controlExpectancy)
+                  ? `${s.controlExpectancy > 0 ? "+" : ""}${s.controlExpectancy.toFixed(2)}R`
+                  : "—"}
+              </span>
+            </Dato>
+            <Dato label="Cerradas" title={`${s.wins} ganadas · ${s.losses} perdidas · ${s.expired} expiradas`}>
+              <span className="dato-l">
+                {s.total}
+                {s.total < MIN_SAMPLE && (
+                  <span className="ml-1 text-[11px] font-normal text-[var(--color-dim)]">/ {MIN_SAMPLE}</span>
+                )}
+              </span>
+            </Dato>
+          </div>
+
+          <div className="border-t border-[var(--color-line-soft)] px-4 py-2.5">
+            <p className="nota-sm">{s.note}</p>
+          </div>
+
+          {desk.ledgerByTf.length > 1 && (
+            <div className="border-t border-[var(--color-line-soft)]">
+              <div className="px-4 pt-2.5">
+                <span className="etiqueta">Por temporalidad</span>
+              </div>
+              {desk.ledgerByTf.map(({ timeframe, stats: t }) => (
+                <div key={timeframe} className="flex items-center gap-3 px-4 py-2">
+                  <span className="seccion w-14 shrink-0">{timeframe}</span>
+                  <span className="dato-m w-14 shrink-0" style={{ color: "var(--color-dim)" }}>
+                    {t.total} ops
+                  </span>
+                  <span className="dato-m ml-auto" style={{ color: "var(--color-dim)" }}>
+                    −{t.avgCostR.toFixed(2)}R coste
+                  </span>
+                  <span
+                    className="dato-l w-20 shrink-0 text-right"
+                    style={{ color: t.expectancyNet > 0 ? "var(--color-up)" : "var(--color-down)" }}
+                  >
+                    {t.expectancyNet > 0 ? "+" : ""}
+                    {t.expectancyNet.toFixed(2)}R
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="border-t border-[var(--color-line-soft)] px-4 py-2.5">
+        <p className="nota-sm">
+          Cada señal se cierra contra velas reales con una regla, no con un criterio. Si una vela contiene stop y
+          objetivo no se sabe cuál se tocó primero y cuenta como <b>pérdida</b>: la suposición conservadora evita
+          inflar el resultado. El <b>porcentaje de aciertos engaña</b> — en este proyecto ha divergido de la esperanza
+          una y otra vez.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- panel ----------------
 
 export default function TradingPanel({ api, desk }: { api: MarketApi; desk: TradingDesk }) {
@@ -259,6 +383,9 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
           </div>
         )}
       </div>
+
+      {/* ---------- registro de aciertos ---------- */}
+      <Registro desk={desk} />
 
       {/* ---------- niveles por temporalidad ---------- */}
       <div className="rounded-xl border border-[var(--color-line)] bg-[rgba(15,21,34,0.55)]">

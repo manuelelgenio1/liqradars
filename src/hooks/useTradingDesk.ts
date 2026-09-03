@@ -14,6 +14,7 @@ import {
   type SignalState,
 } from "../lib/desksignals";
 import * as storage from "../lib/storage";
+import * as ledger from "../lib/deskledger";
 
 /*
   Mesa de operaciones.
@@ -50,6 +51,11 @@ const LS_SIGNALS = "liqradar:desksignals:v1";
 export interface TradingDesk {
   /** señales vivas del par activo, con su edad y frescura */
   signals: SignalState[];
+  /** señales ya cerradas contra velas reales */
+  ledger: ledger.LedgerEntry[];
+  ledgerStats: ledger.LedgerStats;
+  ledgerByTf: { timeframe: string; stats: ledger.LedgerStats }[];
+  clearLedger: () => void;
   /** niveles del par activo, una fila por temporalidad */
   rows: TradeLevels[];
   align: Alignment;
@@ -157,6 +163,8 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     Mientras diga lo mismo es la misma señal envejeciendo.
   */
   const [signals, setSignals] = useState<DeskSignal[]>(() => storage.read<DeskSignal[]>(LS_SIGNALS, []));
+  const [ledgerEntries, setLedger] = useState<ledger.LedgerEntry[]>(() => ledger.load());
+  const candlesRef = useLatest(candlesByTf);
   const rowsRef = useLatest(rows);
   const signalsRef = useLatest(signals);
   const symbolRef = useLatest(symbol);
@@ -169,9 +177,34 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
       const price = priceRef.current;
       if (!(price > 0)) return;
 
-      // primero se retiran las caducadas, luego se mira si nace alguna
-      let vivas = prune(signalsRef.current, sym, price, now);
-      let cambio = vivas.length !== signalsRef.current.length;
+      /*
+        Antes de retirar las caducadas se INTENTA CERRARLAS contra velas
+        reales. Si se descartaran sin más, la mesa emitiria señales y no
+        rendiria cuentas de ellas — que es justo lo que hace el resto del
+        sector.
+      */
+      const previas = signalsRef.current;
+      const cerradas: ledger.LedgerEntry[] = [];
+      for (const s of previas) {
+        if (s.symbol !== sym) continue;
+        const velas = candlesRef.current[s.timeframe];
+        if (!velas?.length) continue;
+        const e = ledger.resolve(s, velas);
+        if (e) cerradas.push(e);
+      }
+      if (cerradas.length) {
+        setLedger((prev) => {
+          const next = ledger.append(prev, cerradas);
+          if (next !== prev) ledger.save(next);
+          return next;
+        });
+      }
+
+      // ahora sí: se retiran las caducadas y se mira si nace alguna
+      let vivas = prune(previas, sym, price, now).filter(
+        (s) => !cerradas.some((e) => e.id === s.id)
+      );
+      let cambio = vivas.length !== previas.length;
 
       for (const r of rowsRef.current) {
         if (!r.ready) continue;
@@ -208,7 +241,14 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     return () => window.clearInterval(id);
     // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
     // siempre el mismo, así que incluirlos NO relanza el efecto.
-  }, [priceRef, rowsRef, signalsRef, symbolRef]);
+  }, [candlesRef, priceRef, rowsRef, signalsRef, symbolRef]);
+
+  const ledgerStats = useMemo(() => ledger.stats(ledgerEntries), [ledgerEntries]);
+  const ledgerByTf = useMemo(() => ledger.statsByTimeframe(ledgerEntries), [ledgerEntries]);
+  const clearLedger = useCallback(() => {
+    ledger.clear();
+    setLedger([]);
+  }, []);
 
   // El estado de cada señal se deriva del precio: no se guarda.
   const signalStates = useMemo(
@@ -283,6 +323,10 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
 
   return {
     signals: signalStates,
+    ledger: ledgerEntries,
+    ledgerStats,
+    ledgerByTf,
+    clearLedger,
     rows,
     align,
     loading,

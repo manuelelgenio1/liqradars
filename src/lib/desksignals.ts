@@ -48,6 +48,15 @@ export interface DeskSignal {
   target: number;
   /** fuerza del consenso al nacer, 0..1 */
   strength: number;
+  /*
+    Control emparejado: una moneda al aire con el MISMO stop y el mismo
+    objetivo, lanzada en el mismo instante.
+
+    Sin él, un 45 % de aciertos no significa nada: habría que saber qué
+    porcentaje sale por azar con esos niveles y ese mercado, y eso cambia con
+    la volatilidad. El control lo mide en las mismas condiciones.
+  */
+  controlSide: Side;
 }
 
 export type Freshness = "fresca" | "enfriando" | "tarde" | "caducada";
@@ -158,6 +167,7 @@ export function maybeBirth(
 
   const stopDist = inp.atr * inp.stopAtr;
   const targetDist = inp.atr * inp.targetAtr;
+  const moneda: Side = rand() > 0.5 ? "long" : "short";
   return {
     id: `desk-${inp.timeframe}-${now}-${Math.floor(rand() * 1e6)}`,
     symbol: inp.symbol,
@@ -169,6 +179,7 @@ export function maybeBirth(
     stop: inp.side === "long" ? inp.price - stopDist : inp.price + stopDist,
     target: inp.side === "long" ? inp.price + targetDist : inp.price - targetDist,
     strength: inp.strength,
+    controlSide: moneda,
   };
 }
 
