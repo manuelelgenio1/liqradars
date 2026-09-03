@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
+  "build": {
+    "env": {
+      "//": "URL publica del registro grabado en servidor. No es un secreto: apunta a un archivo publico del repositorio, asi que va versionada y no hace falta tocar el panel de Vercel.",
+      "VITE_LIQSTUDY_URL": "https://raw.githubusercontent.com/manuelelgenio1/liqradars/main/data/liqstudy.json"
+    }
+  },
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
