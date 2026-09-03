@@ -94,6 +94,17 @@ export default function JournalPanel({ api, sig }: { api: MarketApi; sig: Signal
           <div className="mt-1 font-mono text-[8.5px] text-[var(--color-dim)]">
             bruto {Number.isFinite(s.expectancy) ? `${s.expectancy > 0 ? "+" : ""}${s.expectancy.toFixed(2)}R` : "—"} ·
             azar {Number.isFinite(s.controlExpectancy) ? `${s.controlExpectancy.toFixed(2)}R` : "—"}
+            {Number.isFinite(s.tStat) && (
+              <>
+                {" · "}
+                <span
+                  style={{ color: s.tStat > 2 ? "var(--color-up)" : undefined }}
+                  title="Cuántas desviaciones típicas se aparta de cero. Por debajo de 2, la diferencia cabe dentro del azar por muy grande que parezca."
+                >
+                  t {s.tStat.toFixed(2)}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -205,7 +216,9 @@ export default function JournalPanel({ api, sig }: { api: MarketApi; sig: Signal
           vela contiene stop y objetivo (<span className="text-[var(--color-warn)]">◆</span>) no se sabe cuál llegó
           primero y se cuenta como <b className="text-[var(--color-down)]">pérdida</b>. La columna{" "}
           <b className="text-[var(--color-muted)]">Azar</b> es una moneda al aire con el mismo stop y objetivo: si tu
-          esperanza no la supera, estas reglas no aportan nada. Todas las cifras principales van{" "}
+          esperanza no la supera, estas reglas no aportan nada. Y superarla tampoco basta: hace falta que la diferencia
+          aguante una prueba de significación (<b className="text-[var(--color-muted)]">t&gt;2</b>), porque con pocas
+          operaciones el azar produce ventajas aparentes muy grandes. Todas las cifras principales van{" "}
           <b className="text-[var(--color-muted)]">netas</b>: se descuenta un 0,14 % de ida y vuelta por comisión y
           deslizamiento, medido contra la distancia al stop — por eso un stop estrecho encarece tanto la operación.{" "}
           {s.ambiguous > 0 && `${s.ambiguous} ambiguas.`}

@@ -56,6 +56,21 @@ const MTF: [string, string, number][] = [
 */
 const ACTIVAS = (process.env.ACTIVAS ?? "5m,15m,1H").split(",");
 const DIAS = Number(process.env.DIAS ?? 28);
+
+/*
+  SIN_LIBRO=1 salta la descarga del archivo bookDepth.
+
+  Hace falta para el marco diario. Con una posición a la vez y un máximo de 48
+  velas abierta, una señal diaria puede durar 48 días: en 180 días caben 3 por
+  símbolo, 18 en total. Eso no es una muestra, es una anécdota. Para medir el
+  diario hay que irse a años — y descargar el libro de tres años son más de
+  6.500 ficheros.
+
+  El coste de saltarlo es explícito: se pierde el peso 0,13 del libro, así que
+  quedan consenso (0,30) y confluencia (0,25) — el 55 % del modelo. Se dice al
+  imprimir, para que nadie compare peras con manzanas.
+*/
+const SIN_LIBRO = process.env.SIN_LIBRO === "1";
 const MAX_PREFIX = 400;
 const WARMUP = 200;
 /** Ventana para considerar dos señales el mismo suceso de mercado. */
@@ -117,9 +132,25 @@ const klines = (symbol: string, interval: string, desde: number, hasta: number) 
 /** Libro histórico. Se usa la banda ±0,2 %, la más parecida a los 50 niveles que pide la app. */
 const bookDay = (symbol: string, fecha: string) =>
   cached(`p-b-${symbol}-${fecha}`, async () => {
-    const r = await fetch(`${V}/bookDepth/${symbol}/${symbol}-bookDepth-${fecha}.zip`, { signal: AbortSignal.timeout(60000) });
-    if (!r.ok) return [] as { t: number; imb: number }[];
-    const buf = Buffer.from(await r.arrayBuffer());
+    // Con reintentos: son más de mil ficheros y un solo timeout de red tumbaba
+    // la ejecución entera después de veinte minutos de descarga.
+    let buf: Buffer | null = null;
+    for (let i = 0; i < 4 && !buf; i++) {
+      try {
+        const r = await fetch(`${V}/bookDepth/${symbol}/${symbol}-bookDepth-${fecha}.zip`, { signal: AbortSignal.timeout(60000) });
+        if (!r.ok) return [] as { t: number; imb: number }[]; // no existe ese día: no se reintenta
+        buf = Buffer.from(await r.arrayBuffer());
+      } catch {
+        await sleep(1500 * (i + 1));
+      }
+    }
+    if (!buf) {
+      // Se devuelve vacío en vez de reventar: un día sin libro degrada la
+      // muestra, perderlo todo la destruye.
+      console.warn(`
+  [33msin libro: ${symbol} ${fecha}[0m`);
+      return [] as { t: number; imb: number }[];
+    }
     const off = buf.indexOf(Buffer.from("PK\x03\x04"));
     const start = off + 30 + buf.readUInt16LE(off + 26) + buf.readUInt16LE(off + 28);
     const txt = inflateRawSync(buf.subarray(start)).toString("utf8");
@@ -330,7 +361,7 @@ async function main() {
       mtf.set(tf, await klines(sym, itv, desde - 300 * min * 60_000, hasta));
     }
     const ctx: Contexto = {
-      book: (await enTandas(fechas, 8, (d) => bookDay(sym, d))).flat().sort((a, b) => a.t - b.t),
+      book: SIN_LIBRO ? [] : (await enTandas(fechas, 8, (d) => bookDay(sym, d))).flat().sort((a, b) => a.t - b.t),
       fund: await funding(sym),
       oi: await oiDelta(sym),
       mtf,

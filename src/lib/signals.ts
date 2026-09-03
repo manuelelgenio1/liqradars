@@ -415,6 +415,21 @@ export interface Stats {
   controlWinRate: number;
   /** esperanza de la señal menos la del control */
   edge: number;
+  /*
+    Cuántas desviaciones típicas se aparta la esperanza neta de cero.
+
+    Sin esto, el veredicto se decidía solo con `edge >= 0,15`, y eso es un
+    autoengaño garantizado: con 20 operaciones y una dispersión típica de
+    ~1,2R el error estándar es 0,27R, así que 0,15R de diferencia es MEDIO
+    sigma — algo que el ruido produce sin parar. La bitácora habría cantado
+    VENTAJA sobre azar puro, que es justo lo que esta herramienta existe para
+    no hacer.
+
+    Se detectó midiendo el propio panel: en el marco diario salió +0,373R
+    neto contra +0,157R del control y la app lo declaró VENTAJA, cuando la t
+    era 1,21 sobre 38 sucesos.
+  */
+  tStat: number;
   verdict: "SIN DATOS" | "MUESTRA CORTA" | "SIN VENTAJA" | "PIERDE" | "VENTAJA";
   note: string;
 }
@@ -467,6 +482,12 @@ export function computeStats(signals: Signal[]): Stats {
     ? expectancy - controlExpectancy
     : NaN;
 
+  const sdNet =
+    netRs.length > 1
+      ? Math.sqrt(netRs.reduce((s, x) => s + (x - expectancyNet) ** 2, 0) / (netRs.length - 1))
+      : NaN;
+  const tStat = sdNet > 0 ? expectancyNet / (sdNet / Math.sqrt(netRs.length)) : NaN;
+
   let verdict: Stats["verdict"];
   let note: string;
   if (!resolvedList.length) {
@@ -481,9 +502,13 @@ export function computeStats(signals: Signal[]): Stats {
       expectancy > 0
         ? `Gana ${expectancy.toFixed(2)}R en bruto pero pierde ${expectancyNet.toFixed(2)}R neto: se lo comen las comisiones (${avgCostR.toFixed(2)}R por operación).`
         : `Esperanza neta ${expectancyNet.toFixed(2)}R por operación: pierde dinero en la muestra.`;
-  } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0) {
+  } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0 && tStat > 2) {
     verdict = "VENTAJA";
-    note = `Esperanza neta ${expectancyNet.toFixed(2)}R frente a ${controlExpectancy.toFixed(2)}R de la moneda al aire, ya descontado el coste.`;
+    note = `Esperanza neta ${expectancyNet.toFixed(2)}R frente a ${controlExpectancy.toFixed(2)}R de la moneda al aire, ya descontado el coste (t=${tStat.toFixed(2)}).`;
+  } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0) {
+    // Va por delante del control, pero la diferencia todavía cabe dentro del ruido.
+    verdict = "SIN VENTAJA";
+    note = `Va ${expectancyNet.toFixed(2)}R neto contra ${controlExpectancy.toFixed(2)}R del control, pero con t=${Number.isFinite(tStat) ? tStat.toFixed(2) : "—"} eso todavía cabe dentro del azar. Hace falta t>2 y más muestra.`;
   } else {
     verdict = "SIN VENTAJA";
     note = `Esperanza neta ${expectancyNet.toFixed(2)}R vs ${controlExpectancy.toFixed(2)}R del control: la diferencia no distingue estas reglas del azar.`;
@@ -508,6 +533,7 @@ export function computeStats(signals: Signal[]): Stats {
     controlExpectancy,
     controlWinRate,
     edge,
+    tStat,
     verdict,
     note,
   };

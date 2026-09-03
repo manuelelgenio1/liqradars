@@ -208,11 +208,22 @@ describe("estadísticas", () => {
   });
 
   it("declara ventaja solo si supera claramente al control", () => {
-    const sample = Array.from({ length: 30 }, (_, i) =>
+    // Alternar +2R y −1R deja una media de +0,5R con una dispersión de 1,5R.
+    // Con 30 operaciones la t no llega a 2 y NO basta: la muestra tiene que
+    // crecer para que la misma ventaja se distinga del ruido.
+    const corto = Array.from({ length: 30 }, (_, i) =>
       resolved(i % 2 === 0 ? 2 : -1, i % 2 === 0 ? "ganada" : "perdida", -1)
     );
-    const st = computeStats(sample);
-    expect(st.expectancy).toBeGreaterThan(st.controlExpectancy);
+    const stCorto = computeStats(corto);
+    expect(stCorto.expectancy).toBeGreaterThan(stCorto.controlExpectancy);
+    expect(stCorto.tStat).toBeLessThan(2);
+    expect(stCorto.verdict).toBe("SIN VENTAJA");
+
+    const largo = Array.from({ length: 120 }, (_, i) =>
+      resolved(i % 2 === 0 ? 2 : -1, i % 2 === 0 ? "ganada" : "perdida", -1)
+    );
+    const st = computeStats(largo);
+    expect(st.tStat).toBeGreaterThan(2);
     expect(st.verdict).toBe("VENTAJA");
   });
 
@@ -331,5 +342,61 @@ describe("aviso de coste", () => {
     expect(c15).toBeGreaterThan(c1h);
     expect(costVerdict(c5)).toBe("prohibitivo");
     expect(costVerdict(c1h)).toBe("asumible");
+  });
+});
+
+describe("el veredicto exige significación, no solo diferencia", () => {
+  /*
+    El fallo que esto cierra apareció midiendo el propio panel en marco
+    diario: +0,373R neto contra +0,157R del control, y la app lo declaró
+    VENTAJA. La t era 1,21 sobre 38 sucesos.
+
+    El umbral era `edge >= 0,15` a secas. Con 20 operaciones y una dispersión
+    de ~1,2R, el error estándar es 0,27R: 0,15R es medio sigma, ruido puro.
+    La bitácora construida para no autoengañarse se autoengañaba.
+  */
+  const op = (i: number, r: number, controlR: number): Signal => ({
+    id: `v${i}`, ts: i, symbol: "BTCUSDT", timeframe: "1D", side: "long",
+    entry: 100, stop: 90, target: 120, rr: 2, score: 0.5, reasons: [],
+    strategy: "consenso", controlSide: "long", outcome: r > 0 ? "ganada" : "perdida",
+    r, rNet: r - 0.014, costR: 0.014, controlR,
+    controlOutcome: controlR > 0 ? "ganada" : "perdida",
+  });
+
+  it("una ventaja aparente dentro del ruido NO es ventaja", () => {
+    // muy dispersas: la media es positiva pero la t se queda corta
+    const sigs = Array.from({ length: 40 }, (_, i) =>
+      op(i, i % 2 ? 2.4 : -1.6, i % 3 ? -1 : 2)
+    );
+    const st = computeStats(sigs);
+    expect(st.expectancyNet).toBeGreaterThan(0);
+    expect(st.edge).toBeGreaterThan(0.15);
+    expect(st.tStat).toBeLessThan(2);
+    expect(st.verdict).toBe("SIN VENTAJA");
+    expect(st.note).toContain("cabe dentro del azar");
+  });
+
+  it("una ventaja consistente sí lo es", () => {
+    // misma media, mucha menos dispersión
+    const sigs = Array.from({ length: 40 }, (_, i) => op(i, 0.5 + (i % 4) * 0.02, -1));
+    const st = computeStats(sigs);
+    expect(st.tStat).toBeGreaterThan(2);
+    expect(st.verdict).toBe("VENTAJA");
+  });
+
+  it("la t se calcula sobre el NETO, no sobre el bruto", () => {
+    // gana en bruto y pierde en neto: la t debe salir negativa
+    const caros = Array.from({ length: 30 }, (_, i) => {
+      const r = 0.1 + (i % 5) * 0.02; // algo de variación: sin ella no hay t
+      return { ...op(i, r, 0), rNet: r - 0.6, costR: 0.6 };
+    });
+    const st = computeStats(caros);
+    expect(st.expectancy).toBeGreaterThan(0);
+    expect(st.tStat).toBeLessThan(0);
+    expect(st.verdict).toBe("PIERDE");
+  });
+
+  it("con una sola operación no inventa una t", () => {
+    expect(Number.isFinite(computeStats([op(1, 1, 0)]).tStat)).toBe(false);
   });
 });
