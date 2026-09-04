@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "maker-selec-adversa",
+    hypothesis: "Poner el spread en vez de pagarlo rescata el corto plazo, porque la comisión maker es cero",
+    verdict: "no-operable",
+    sample: "12 combinaciones de distancia y horizonte · 10 pares · 2.563 a 4.198 sucesos fuera de muestra",
+    numbers:
+      "bruto tras ejecución pasiva: −0,023 ATR a 0,25 ATR de distancia y +0,044 a 1 ATR · neto negativo en las doce, porque la salida a mercado cuesta ~0,15 ATR",
+    meaning:
+      "La idea venía de la literatura, que sitúa la ventaja predecible a corto plazo en 0,5 puntos básicos contra 5 de comisión taker y la propone como input de ejecución, no como estrategia. Medido: la SELECCIÓN ADVERSA es real y queda cuantificada — pegado al precio te ejecutan y el precio sigue en tu contra. Lejos del precio el bruto se vuelve positivo, pero ni alcanza significación ni cubre el coste de salir a mercado. Entrar gratis no basta si sales pagando. La simulación tiene dos sesgos A FAVOR: ignora la cola de órdenes y el orden dentro de la vela, así que la realidad es peor.",
+  },
+  {
     id: "vol-regimen",
     hypothesis: "Operar solo cuando hay volatilidad rescata el scalping, porque abarata la operación",
     verdict: "descartada",
