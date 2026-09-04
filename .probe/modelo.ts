@@ -45,7 +45,7 @@ const PARES = [
   "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
   "DOGEUSDT", "ADAUSDT", "SUIUSDT", "LINKUSDT", "AVAXUSDT",
 ];
-const TF = "5m";
+const TF = process.argv[2] ?? "5m";  // por argumento, para poder repetir en 30m
 const PAGINAS = 8;
 const ATR_LEN = 14;
 const LAMBDA = 1.0;      // penalización ridge

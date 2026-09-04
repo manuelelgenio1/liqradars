@@ -40,7 +40,7 @@ const PARES = [
   "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
   "DOGEUSDT", "ADAUSDT", "SUIUSDT", "LINKUSDT", "AVAXUSDT",
 ];
-const TF = "5m";
+const TF = process.argv[2] ?? "5m";  // por argumento, para poder repetir en 30m
 const REZAGOS = [1, 2];
 const HORIZONTES = [1, 4];
 const QUINTIL = 0.2;

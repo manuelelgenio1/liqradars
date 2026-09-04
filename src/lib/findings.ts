@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "reversion-30m",
+    hypothesis: "La reversión del retorno rezagado, que sí existe en 5m, también está en 30m",
+    verdict: "descartada",
+    sample: "4 combinaciones de rezago y horizonte · 10 pares · 2.407 a 2.409 sucesos fuera de muestra · más el modelo de once rasgos",
+    numbers:
+      "las t van de −0,57 a +1,59, ninguna llega al listón de 2,50 · el modelo combinado da R² FUERA de muestra de −0,091 %, negativo · el peso de r1 cambia de −0,016 en 5m a +0,012 en 30m",
+    meaning:
+      "Cierra un hueco propio: la reversión y el modelo combinado solo se habían medido en 5m, y eran las dos únicas cosas con señal. En 30m no están. El peso del retorno rezagado no solo se desvanece, CAMBIA DE SIGNO — de reversión a momento — lo que confirma que era un efecto de microestructura de cinco minutos y no una propiedad del mercado. Y un R² fuera de muestra negativo significa que el modelo predice peor que decir la media: solo memorizó ruido.",
+  },
+  {
     id: "estructura-precio",
     hypothesis: "Los soportes y resistencias predicen: el precio rebota en ellos, o los rompe y sigue",
     verdict: "descartada",
