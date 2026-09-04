@@ -5,9 +5,9 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1788501470858,
+ "updatedAt": 1788539116005,
  "lastDataAt": 1788439316742,
- "runs": 9,
+ "runs": 10,
  "obs": [
   {
    "id": "srv-1788438720000-BTCUSDT",
