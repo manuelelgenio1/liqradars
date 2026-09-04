@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useNow } from "../hooks/useNow";
+import { useSignalAlarm } from "../hooks/useSignalAlarm";
+import * as alarm from "../lib/alarm";
 import type { MarketApi } from "../hooks/useMarket";
 import { DESK_TFS, type TradingDesk } from "../hooks/useTradingDesk";
 import type { TradeLevels } from "../lib/levels";
@@ -52,6 +54,19 @@ const TEXTO_ENTRADA: Record<SignalState["freshness"], string> = {
   caducada: "caducada",
 };
 
+/**
+ * Distancia de un nivel a la entrada, en porcentaje y con signo.
+ *
+ * El precio absoluto de un stop no dice nada por sí solo: 81.200 en BTC es un
+ * pelo y en otro par sería un abismo. El porcentaje es lo que se traduce en
+ * tamaño de posición.
+ */
+function distPct(entry: number, nivel: number): string {
+  if (!(entry > 0) || !Number.isFinite(nivel)) return "—";
+  const p = ((nivel - entry) / entry) * 100;
+  return `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
+}
+
 /** Un dato con su etiqueta encima, discreta. */
 function Dato({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
   return (
@@ -90,10 +105,36 @@ function SenalViva({ s, dec }: { s: SignalState; dec: number }) {
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-        <Dato label="Nació en" title="Precio en el instante en que apareció la señal">
+      {/*
+        LOS TRES NIVELES, que es lo que hace falta para operar. Antes esta
+        tarjeta enseñaba "Nació en" y nada más: sabías que había señal pero no
+        dónde poner el stop ni dónde salir, y había que ir a la tabla de abajo
+        a buscarlo. La entrada ES el precio de nacimiento, así que enseñar las
+        dos cosas era repetir el mismo dato con dos nombres.
+
+        Bajo el stop y el objetivo va su distancia en porcentaje: el precio
+        absoluto no dice si el stop está a un pelo o a un mundo, y esa
+        distancia es la que decide el tamaño de la posición.
+      */}
+      <div className="mt-3 grid grid-cols-3 gap-x-4 rounded-md bg-[var(--color-surface-3)] px-3 py-2.5">
+        <Dato label="Entrada" title="Precio en el instante en que apareció la señal. Los niveles se fijaron aquí y no se tocan.">
           <span className="dato-l">{f.price(s.signal.entry, dec)}</span>
         </Dato>
+        <Dato label="Stop" title="Dónde se admite que la señal falló. Debajo, a qué distancia está en porcentaje.">
+          <span className="dato-l" style={{ color: "var(--color-down)" }}>
+            {f.price(s.signal.stop, dec)}
+          </span>
+          <div className="nota-sm">{distPct(s.signal.entry, s.signal.stop)}</div>
+        </Dato>
+        <Dato label="Objetivo" title="Dónde se recoge. Debajo, a qué distancia está en porcentaje.">
+          <span className="dato-l" style={{ color: "var(--color-up)" }}>
+            {f.price(s.signal.target, dec)}
+          </span>
+          <div className="nota-sm">{distPct(s.signal.entry, s.signal.target)}</div>
+        </Dato>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-3">
         <Dato label="Hace" title="Tiempo transcurrido desde que apareció">
           <span className="dato-l" style={{ color: "var(--color-muted)" }}>
             {f.countdown(s.ageMs)}
@@ -311,6 +352,26 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
   const { align } = desk;
   const [verPorque, setVerPorque] = useState(false);
 
+  /*
+    LA ALARMA SE ENCIENDE CON UN CLIC Y NO PUEDE SER DE OTRA FORMA. Ningún
+    navegador deja sonar audio hasta que el usuario ha interactuado con la
+    página, así que este clic hace dos cosas a la vez: guardar la preferencia
+    y darle al navegador el gesto que exige. Si se activara sola al cargar, el
+    primer aviso se perdería en silencio y parecería que no funciona.
+
+    Se restaura apagada aunque estuviera activa: al recargar no hay gesto
+    todavía. Prometer un aviso que el navegador va a bloquear es peor que no
+    prometerlo.
+  */
+  const [alarmaOn, setAlarmaOn] = useState(false);
+  const alternarAlarma = useCallback(() => {
+    setAlarmaOn((prev) => {
+      if (prev) return false;
+      return alarm.unlock();
+    });
+  }, []);
+  useSignalAlarm(desk.signals, alarmaOn);
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pb-2">
       {/* ---------- cabecera ---------- */}
@@ -363,6 +424,22 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
               {desk.signals.length}
             </span>
           )}
+          <button
+            onClick={alternarAlarma}
+            title={
+              alarmaOn
+                ? "Suena un aviso cuando nace una señal. Sube para largo, baja para corto."
+                : "Activar el aviso sonoro. El navegador exige este clic: sin él no puede sonar nada."
+            }
+            className="ml-auto rounded border px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
+            style={{
+              color: alarmaOn ? "var(--color-up)" : "var(--color-dim)",
+              borderColor: alarmaOn ? "rgba(33,212,160,0.45)" : "var(--color-line)",
+              background: alarmaOn ? "var(--color-up-soft)" : "transparent",
+            }}
+          >
+            {alarmaOn ? "Alarma activada" : "Alarma apagada"}
+          </button>
         </div>
 
         {desk.signals.length === 0 ? (

@@ -474,10 +474,25 @@ export function useMarket() {
   }, []);
 
   // ---------- precio en vivo sobre la última vela ----------
+  /*
+    OJO CON LAS DEPENDENCIAS DE ESTE EFECTO. Antes eran
+    `[paused, tickers, spec.binance]`, y ahí estaba el fallo: el WebSocket
+    vuelca `tickers` cada 300 ms, así que el efecto se relanzaba cada 300 ms,
+    limpiaba el intervalo y arrancaba otro de 700 ms. Como 300 < 700, el
+    temporizador NUNCA llegaba a disparar mientras el stream tuviera actividad.
+
+    Resultado: el precio solo se refrescaba cuando el mercado se quedaba
+    quieto más de 700 ms — exactamente al revés de lo que hace falta. Medido
+    en producción: UN cambio de precio en 16 segundos.
+
+    El ticker entra ahora por un ref, que no cambia de identidad. El efecto se
+    monta una vez y el intervalo late de verdad cada 700 ms.
+  */
+  const tickersRef = useLatest(tickers);
   useEffect(() => {
     if (paused) return;
     const id = window.setInterval(() => {
-      const t = tickers[spec.binance];
+      const t = tickersRef.current[spec.binance];
       if (!t) return;
       const delta = tradeDelta.current;
       tradeDelta.current = 0;
@@ -495,7 +510,7 @@ export function useMarket() {
       });
     }, 700);
     return () => window.clearInterval(id);
-  }, [paused, tickers, spec.binance]);
+  }, [paused, spec.binance, tickersRef]);
 
   // ---------- indicadores ----------
   const cfg = useMemo(() => configFor(tf), [tf]);
