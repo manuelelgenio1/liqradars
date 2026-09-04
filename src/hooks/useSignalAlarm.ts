@@ -73,7 +73,21 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     un aviso que el navegador va a bloquear es peor que no prometerlo.
   */
   const alternarAlarma = useCallback(() => {
-    setAlarmaOn((prev) => (prev ? false : alarm.unlock()));
+    setAlarmaOn((prev) => {
+      if (prev) return false;
+      const ok = alarm.unlock();
+      /*
+        SUENA UNA VEZ AL ACTIVARLA, y no es un adorno.
+
+        Sin esto no hay forma de distinguir "la alarma está rota" de "todavía
+        no ha nacido nada", que puede ser media hora si el alcance es de un
+        solo par. El usuario se queda mirando un botón que dice ACTIVADA sin
+        saber si le va a avisar. Un pitido en el momento del clic lo resuelve:
+        si lo oyes, funciona; si no, es el volumen o el navegador.
+      */
+      if (ok) alarm.beep("long");
+      return ok;
+    });
   }, []);
   const alternarAlcance = useCallback(() => {
     setAlcance((a) => (a === "par" ? "todos" : "par"));

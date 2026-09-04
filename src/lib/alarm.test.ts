@@ -117,6 +117,7 @@ class OscFalso {
 
 class CtxFalso {
   state = "running";
+  resume: () => void | Promise<void> = () => {};
   currentTime = 0;
   destination = {};
   osciladores: OscFalso[] = [];
@@ -128,7 +129,6 @@ class CtxFalso {
   createGain() {
     return { gain: new ParamFalso(), connect: (n: unknown) => n };
   }
-  resume() {}
 }
 
 /*
@@ -189,6 +189,33 @@ describe("el aviso sonoro", () => {
     const ctx = montar();
     alarmSound.beep("long");
     expect(ctx.osciladores[1].arrancado[0]).toBeGreaterThan(ctx.osciladores[0].arrancado[0]);
+  });
+
+  it("un contexto SUSPENDIDO se despierta en vez de rendirse", async () => {
+    /*
+      El fallo por el que la alarma quedaba muda: Chrome suspende el
+      AudioContext cuando la pestaña pasa a segundo plano o queda inactiva. La
+      versión anterior comprobaba `state !== "running"` y volvía sin más, así
+      que tras un rato en otra ventana cada aviso se descartaba en silencio.
+    */
+    const ctx = montar();
+    ctx.state = "suspended";
+    ctx.resume = () => {
+      ctx.state = "running";
+      return Promise.resolve();
+    };
+    alarmSound.beep("long");
+    expect(ctx.osciladores).toHaveLength(0); // todavía no: despertar es asíncrono
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.osciladores).toHaveLength(2);
+  });
+
+  it("si el navegador se niega a despertarlo, no revienta", () => {
+    const ctx = montar();
+    ctx.state = "suspended";
+    ctx.resume = () => Promise.reject(new Error("hace falta un gesto"));
+    expect(() => alarmSound.beep("long")).not.toThrow();
   });
 
   it("sin desbloquear NO suena nada", () => {

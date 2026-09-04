@@ -115,11 +115,32 @@ function tono(freq: number, inicio: number, dur: number): void {
   osc.stop(inicio + dur + 0.02);
 }
 
-/** Dos notas: ascendentes para largo, descendentes para corto. */
+/**
+ * Dos notas: ascendentes para largo, descendentes para corto.
+ *
+ * SI EL CONTEXTO ESTÁ SUSPENDIDO SE INTENTA DESPERTAR ANTES DE RENDIRSE, y eso
+ * era un fallo de verdad: Chrome suspende el AudioContext cuando la pestaña
+ * pasa a segundo plano o queda inactiva un rato. La versión anterior
+ * comprobaba `state !== "running"` y volvía sin más, así que tras un rato en
+ * otra ventana la alarma quedaba activada de nombre y muda de hecho — cada
+ * aviso se descartaba sin sonar y sin decirlo.
+ *
+ * Despertarlo no siempre se puede sin un gesto nuevo del usuario, pero cuando
+ * ya hubo uno antes el navegador suele permitirlo. Intentarlo y fallar es
+ * infinitamente mejor que no intentarlo.
+ */
 export function beep(side: Side): void {
-  if (!ctx || ctx.state !== "running") return;
-  const t0 = ctx.currentTime;
-  const [a, b] = side === "long" ? [660, 990] : [660, 440];
-  tono(a, t0, 0.1);
-  tono(b, t0 + 0.11, 0.16);
+  if (!ctx) return;
+  const emitir = () => {
+    if (!ctx || ctx.state !== "running") return;
+    const t0 = ctx.currentTime;
+    const [a, b] = side === "long" ? [660, 990] : [660, 440];
+    tono(a, t0, 0.1);
+    tono(b, t0 + 0.11, 0.16);
+  };
+  if (ctx.state === "running") {
+    emitir();
+    return;
+  }
+  void Promise.resolve(ctx.resume()).then(emitir, () => {});
 }
