@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLatest } from "./useLatest";
 import * as alarm from "../lib/alarm";
+import * as storage from "../lib/storage";
 import type { SignalState } from "../lib/desksignals";
 import type { Side } from "../lib/types";
 
@@ -35,7 +36,7 @@ export const MAX_PITIDOS = 3;
 /** Cuántos avisos se recuerdan para enseñar. */
 const MAX_AVISOS = 12;
 
-export type Alcance = "par" | "todos";
+const LS_PARES = "liqradar:alarma:pares";
 
 export interface Aviso {
   id: string;
@@ -50,8 +51,12 @@ export interface AlarmaApi {
   limpiarAvisos: () => void;
   alarmaOn: boolean;
   alternarAlarma: () => void;
-  alcance: Alcance;
-  alternarAlcance: () => void;
+  /** pares que avisan; el resto se vigila igual pero en silencio */
+  seleccion: string[];
+  alternarPar: (sym: string) => void;
+  elegirTodos: (syms: string[]) => void;
+  elegirNinguno: () => void;
+  elegirSoloActual: () => void;
 }
 
 export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaApi {
@@ -63,7 +68,44 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     pestaña, que es justo cuando una alarma sirve para algo.
   */
   const [alarmaOn, setAlarmaOn] = useState(false);
-  const [alcance, setAlcance] = useState<Alcance>("par");
+
+  /*
+    QUÉ PARES AVISAN. Antes era un interruptor de dos posiciones —este par o
+    los veinte— y ninguna de las dos servía: veinte es ruido y uno se queda
+    corto.
+
+    ESTA PREFERENCIA SÍ SE GUARDA entre recargas, al revés que el encendido de
+    la alarma, y no es incoherencia. El encendido no se restaura porque el
+    navegador bloquearía el sonido y el botón estaría mintiendo; recordar qué
+    pares te importan no promete nada que no se pueda cumplir.
+  */
+  const [seleccion, setSeleccion] = useState<string[]>(() => {
+    const guardada = storage.read<string[]>(LS_PARES, []);
+    return Array.isArray(guardada) && guardada.length ? guardada : [symbol];
+  });
+
+  const guardar = useCallback((next: string[]) => {
+    setSeleccion(next);
+    storage.write(LS_PARES, next);
+  }, []);
+
+  /*
+    El cálculo sale del actualizador de estado a propósito. Guardar en disco
+    DENTRO de `setSeleccion` es un efecto secundario en una función que React
+    puede invocar dos veces: funciona por casualidad, no por diseño. La lista
+    vigente se lee de un ref y el guardado ocurre una sola vez, donde se ve.
+  */
+  const seleccionRef = useLatest(seleccion);
+  const alternarPar = useCallback(
+    (sym: string) => {
+      const prev = seleccionRef.current;
+      guardar(prev.includes(sym) ? prev.filter((x) => x !== sym) : [...prev, sym]);
+    },
+    [guardar, seleccionRef]
+  );
+  const elegirTodos = useCallback((syms: string[]) => guardar([...syms]), [guardar]);
+  const elegirNinguno = useCallback(() => guardar([]), [guardar]);
+  const elegirSoloActual = useCallback(() => guardar([symbol]), [guardar, symbol]);
 
   /*
     LA ALARMA SE ENCIENDE CON UN CLIC Y NO PUEDE SER DE OTRA FORMA. Ningún
@@ -89,10 +131,7 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
       return ok;
     });
   }, []);
-  const alternarAlcance = useCallback(() => {
-    setAlcance((a) => (a === "par" ? "todos" : "par"));
-  }, []);
-  const optsRef = useLatest({ enabled: alarmaOn, alcance, symbol });
+  const optsRef = useLatest({ enabled: alarmaOn, seleccion });
 
   /*
     SOLO SE AVISA DE LO NACIDO DESPUÉS DE ARRANCAR.
@@ -144,12 +183,12 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     seen.current = d.seen;
     if (!d.nuevas.length) return;
 
-    const { enabled, alcance, symbol } = optsRef.current;
+    const { enabled, seleccion: elegidos } = optsRef.current;
     const nuevas = d.nuevas
       .map((id) => signals.find((x) => x.signal.id === id))
       .filter((s): s is SignalState => !!s)
       .filter((s) => s.signal.bornAt >= desde.current)
-      .filter((s) => alcance === "todos" || s.signal.symbol === symbol);
+      .filter((s) => elegidos.includes(s.signal.symbol));
     if (!nuevas.length) return;
 
     setAvisos((prev) =>
@@ -182,5 +221,15 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     }
   }, [signals, optsRef]);
 
-  return { avisos, limpiarAvisos, alarmaOn, alternarAlarma, alcance, alternarAlcance };
+  return {
+    avisos,
+    limpiarAvisos,
+    alarmaOn,
+    alternarAlarma,
+    seleccion,
+    alternarPar,
+    elegirTodos,
+    elegirNinguno,
+    elegirSoloActual,
+  };
 }

@@ -372,7 +372,8 @@ export default function TradingPanel({
   const { align } = desk;
   const [verPorque, setVerPorque] = useState(false);
 
-  const { avisos, limpiarAvisos, alarmaOn, alternarAlarma, alcance, alternarAlcance } = alarma;
+  const { avisos, limpiarAvisos, alarmaOn, alternarAlarma, seleccion } = alarma;
+  const [verPares, setVerPares] = useState(false);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pb-2">
@@ -427,15 +428,11 @@ export default function TradingPanel({
             </span>
           )}
           <button
-            onClick={alternarAlcance}
-            title={
-              alcance === "par"
-                ? "Ahora solo avisa del par que estás mirando. Pulsa para que avise de los 20."
-                : "Avisa de los 20 pares vigilados. Un giro general puede parir señales en casi todos a la vez, así que se pitan las primeras y el resto queda en la lista."
-            }
+            onClick={() => setVerPares((v) => !v)}
+            title="Elegir de qué pares quieres oír el aviso. Los demás se siguen vigilando y anotando, pero en silencio."
             className="ml-auto rounded border border-[var(--color-line)] px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-dim)] transition-colors hover:text-[var(--color-body)]"
           >
-            {alcance === "par" ? "solo este par" : `los ${desk.tracked || 20} pares`}
+            avisa de {seleccion.length} {seleccion.length === 1 ? "par" : "pares"} {verPares ? "▴" : "▾"}
           </button>
           <button
             onClick={alternarAlarma}
@@ -454,6 +451,54 @@ export default function TradingPanel({
             {alarmaOn ? "Alarma activada" : "Alarma apagada"}
           </button>
         </div>
+
+        {/*
+          QUÉ PARES AVISAN. "Los veinte" es ruido y "solo este" se queda corto,
+          así que se eligen. Los no elegidos SE SIGUEN VIGILANDO y sus señales
+          entran igual en el registro: lo único que cambia es que no suenan.
+        */}
+        {verPares && (
+          <div className="mb-3 rounded-lg border border-[var(--color-line)] bg-[rgba(15,21,34,0.5)] px-3 py-2.5">
+            <div className="mb-2 flex items-baseline gap-2">
+              <span className="etiqueta">De qué pares quieres oír el aviso</span>
+              <button
+                onClick={() => alarma.elegirTodos(desk.universe.map((u) => u.symbol))}
+                className="etiqueta ml-auto hover:text-[var(--color-bright)]"
+              >
+                todos
+              </button>
+              <button onClick={alarma.elegirSoloActual} className="etiqueta hover:text-[var(--color-bright)]">
+                solo el actual
+              </button>
+              <button onClick={alarma.elegirNinguno} className="etiqueta hover:text-[var(--color-down)]">
+                ninguno
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {desk.universe.map((u) => {
+                const on = seleccion.includes(u.symbol);
+                return (
+                  <button
+                    key={u.symbol}
+                    onClick={() => alarma.alternarPar(u.symbol)}
+                    className="rounded border px-2 py-1 font-display text-[10px] font-bold tracking-wide transition-colors"
+                    style={{
+                      color: on ? "var(--color-up)" : "var(--color-dim)",
+                      borderColor: on ? "rgba(33,212,160,0.45)" : "var(--color-line)",
+                      background: on ? "var(--color-up-soft)" : "transparent",
+                    }}
+                  >
+                    {u.symbol.replace("USDT", "")}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="nota-sm mt-2">
+              Los que dejes apagados se siguen vigilando y sus señales entran igual en el registro. Solo dejan de
+              sonar.
+            </p>
+          </div>
+        )}
 
         {/*
           QUÉ PAR AVISÓ. Un pitido a secas no lo dice, y con veinte pares
