@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "estructura-precio",
+    hypothesis: "Los soportes y resistencias predicen: el precio rebota en ellos, o los rompe y sigue",
+    verdict: "descartada",
+    sample: "2 hipótesis OPUESTAS × 2 marcos · 10 pares · 30.000 velas cada uno · 3.373 a 4.797 sucesos fuera de muestra",
+    numbers:
+      "rebote 37,5 % y rotura 38,5 % en 5m · rebote 36,7 % y rotura 37,8 % en 30m · el azar da 37,5 %",
+    meaning:
+      "Es la última familia distinta que quedaba y la única que usan los operadores discrecionales: niveles reales en vez de múltiplos de volatilidad. La prueba está construida para no poder acertar por casualidad — rebote y rotura son opuestas, así que si el nivel predijera algo una tendría que superar al azar y la otra quedarse debajo. Las dos caen exactamente en el azar. El nivel no contiene información: llegar a un soporte no dice nada sobre si va a aguantar o a ceder. Nota técnica que decide la validez: un pivote solo se usa K velas después de formarse, porque antes nadie sabía que lo era; saltarse eso es lo que hace que la mayoría de los backtests de estructura salgan preciosos y falsos.",
+  },
+  {
     id: "entradas-intrabar",
     hypothesis: "Entrar con un disparador dentro de la vela, y no al cierre, cambia el resultado",
     verdict: "no-operable",
