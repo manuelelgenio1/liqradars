@@ -66,6 +66,25 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "vol-regimen",
+    hypothesis: "Operar solo cuando hay volatilidad rescata el scalping, porque abarata la operación",
+    verdict: "no-operable",
+    sample: "4 cuartiles de volatilidad · 10 pares · 446 sucesos en el cuartil más volátil de 5m, fuera de muestra",
+    numbers:
+      "en 5m el coste cae de 0,272R a 0,064R y el neto sube de −0,312R a −0,035R · en 30m el mejor cuartil da +0,009R con t=0,90 y el listón está en 2,50",
+    meaning:
+      "El mecanismo es aritmético y se cumple: el coste en R depende de lo grande que sea el ATR frente al precio, así que en los tramos volátiles la misma comisión pesa cuatro veces menos. Deja de sangrar casi del todo pero no cruza el cero, que es exactamente lo que se predijo por escrito antes de medir. Queda anotado un rastro que NO es hallazgo porque salió de trocear datos ya vistos: el bruto crece de forma monótona con la volatilidad en los dos marcos.",
+  },
+  {
+    id: "funding-contrario",
+    hypothesis: "Con funding extremo el precio va contra el lado amontonado",
+    verdict: "descartada",
+    sample: "quintil extremo de funding · 10 pares · 207 sucesos en 30m fuera de muestra",
+    numbers: "bruto −0,060 ATR en 30m contra un coste de 0,230 · negativo en los seis casos medidos",
+    meaning:
+      "El posicionamiento es otra familia de datos —quién está dentro y cuánto paga por seguir— y merecía probarse. No predice ir contra la multitud. En 30m hay potencia para descartarlo: el bruto tendría que estar 5,4 errores típicos más arriba. En 5m NO la hay, porque el funding se liquida a la misma hora en todos los pares y agrupar por suceso deja solo 40 observaciones; ahí no se afirma nada.",
+  },
+  {
     id: "footprint-agresor",
     hypothesis: "El desequilibrio agresor del footprint anticipa la continuación del precio",
     verdict: "descartada",
