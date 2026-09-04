@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "mesa-4h-diario",
+    hypothesis: "La misma mesa sí funciona en 4H y diario, donde el coste es veinte veces menor",
+    verdict: "abierta",
+    sample: "12.000 velas × 10 pares en cada marco · 908 sucesos en 4H y 258 en diario, fuera de muestra",
+    numbers:
+      "4H +0,056R netos con t=1,44 · diario +0,053R con t=1,31 · el listón, tras probar 3 marcos × 5 anchuras, está en 2,9 sigmas",
+    meaning:
+      "Sigue ABIERTA y no descartada, y la diferencia es real: en 5m hay potencia para afirmar que la ventaja no existe, aquí no. El neto sale positivo en casi todas las anchuras y el bruto es consistente, pero el ruido es demasiado grande para distinguirlo de cero. Hacen falta unas tres veces más sucesos, y reutilizar estos mismos datos para volver a mirar sería justo la trampa que este expediente existe para evitar.",
+  },
+  {
     id: "stop-ancho-5m",
     hypothesis: "Ensanchar el stop en 5 minutos rescata el scalping, porque diluye la comisión",
     verdict: "descartada",

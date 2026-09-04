@@ -372,7 +372,7 @@ export default function TradingPanel({
   const { align } = desk;
   const [verPorque, setVerPorque] = useState(false);
 
-  const { avisos, limpiarAvisos, alarmaOn, alternarAlarma, seleccion } = alarma;
+  const { avisos, limpiarAvisos, alarmaOn, alarmaPendiente, alternarAlarma, seleccion } = alarma;
   const [verPares, setVerPares] = useState(false);
 
   return (
@@ -439,16 +439,32 @@ export default function TradingPanel({
             title={
               alarmaOn
                 ? "Suena un aviso cuando nace una señal. Sube para largo, baja para corto."
-                : "Activar el aviso sonoro. El navegador exige este clic: sin él no puede sonar nada."
+                : alarmaPendiente
+                  ? "La tenías encendida, pero este navegador exige un clic tuyo antes de dejar sonar nada. Pulsa y vuelve a estar activa."
+                  : "Activar el aviso sonoro. El navegador exige este clic: sin él no puede sonar nada."
             }
             className="rounded border px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
             style={{
-              color: alarmaOn ? "var(--color-up)" : "var(--color-dim)",
-              borderColor: alarmaOn ? "rgba(33,212,160,0.45)" : "var(--color-line)",
+              color: alarmaOn
+                ? "var(--color-up)"
+                : alarmaPendiente
+                  ? "var(--color-warn)"
+                  : "var(--color-dim)",
+              borderColor: alarmaOn
+                ? "rgba(33,212,160,0.45)"
+                : alarmaPendiente
+                  ? "rgba(255,176,32,0.5)"
+                  : "var(--color-line)",
               background: alarmaOn ? "var(--color-up-soft)" : "transparent",
             }}
           >
-            {alarmaOn ? "Alarma activada" : "Alarma apagada"}
+            {/*
+              TRES ESTADOS, NO DOS. El de en medio existe porque la
+              preferencia se recuerda pero el navegador puede negarse a sonar
+              sin un gesto nuevo. Enseñar "activada" en ese caso sería una
+              promesa falsa; enseñar "apagada" haría creer que no se guardó.
+            */}
+            {alarmaOn ? "Alarma activada" : alarmaPendiente ? "Pulsa para reactivar" : "Alarma apagada"}
           </button>
         </div>
 

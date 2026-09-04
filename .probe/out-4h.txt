@@ -1,0 +1,34 @@
+Descargando 4h de 10 pares…
+  BTCUSDT: 12000 velas · reconstrucción verificada
+  ETHUSDT: 12000 velas · reconstrucción verificada
+  SOLUSDT: 12000 velas · reconstrucción verificada
+  BNBUSDT: 12000 velas · reconstrucción verificada
+  XRPUSDT: 12000 velas · reconstrucción verificada
+  DOGEUSDT: 12000 velas · reconstrucción verificada
+  ADAUSDT: 12000 velas · reconstrucción verificada
+  SUIUSDT: 7318 velas · reconstrucción verificada
+  LINKUSDT: 12000 velas · reconstrucción verificada
+  AVAXUSDT: 12000 velas · reconstrucción verificada
+
+Velas por par: 7318 · busca [200..4756] · confirma [4756..7318]
+Listón con Bonferroni para 5 anchuras: 2.58 sigmas
+
+stop   tramo      ops  sucesos   bruto    coste     NETO      t
+────────────────────────────────────────────────────────────────────
+1.2 ATR  busca     5498    2935  +0.032  -0.042  -0.010  -1.543
+1.2 ATR  CONFIRMA  3006    1626  +0.065  -0.060  +0.005  +0.116
+────────────────────────────────────────────────────────────────────
+2.0 ATR  busca     3229    1965  +0.075  -0.026  +0.049  +0.800
+2.0 ATR  CONFIRMA  1775    1112  +0.059  -0.037  +0.022  +0.473
+────────────────────────────────────────────────────────────────────
+3.0 ATR  busca     2614    1674  +0.068  -0.017  +0.051  +1.364
+3.0 ATR  CONFIRMA  1410     954  +0.068  -0.024  +0.044  +0.997
+────────────────────────────────────────────────────────────────────
+4.0 ATR  busca     2427    1568  +0.040  -0.013  +0.027  +0.558
+4.0 ATR  CONFIRMA  1315     908  +0.074  -0.018  +0.056  +1.437
+────────────────────────────────────────────────────────────────────
+6.0 ATR  busca     2308    1491  +0.018  -0.009  +0.009  +0.160
+6.0 ATR  CONFIRMA  1241     870  +0.057  -0.012  +0.045  +1.586
+────────────────────────────────────────────────────────────────────
+
+Un NETO positivo solo cuenta si aguanta en CONFIRMA y su t supera 2.58.

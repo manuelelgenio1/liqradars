@@ -95,6 +95,29 @@ export function isReady(): boolean {
   return ctx !== null && ctx.state === "running";
 }
 
+/**
+ * Intenta dejar el audio listo SIN gesto del usuario, y dice la verdad sobre
+ * si lo consiguió.
+ *
+ * Sirve para restaurar la preferencia al recargar. Los navegadores permiten
+ * arrancar audio sin gesto cuando ya has interactuado con el sitio otras
+ * veces; cuando no lo permiten, esto devuelve false y la interfaz pide el
+ * clic en vez de prometer un aviso que no va a sonar.
+ */
+export async function tryResume(): Promise<boolean> {
+  ctx ??= crearCtx();
+  if (!ctx) return false;
+  if (ctx.state === "running") return true;
+  try {
+    await ctx.resume();
+  } catch {
+    /* el navegador exige un gesto: se pedirá */
+  }
+  // Se relee con `isReady` a propósito: TypeScript estrecha `ctx.state` tras
+  // el return de arriba y no sabe que `resume()` lo cambia en ejecución.
+  return isReady();
+}
+
 /** Solo para las pruebas: devuelve el módulo a su estado inicial. */
 export function reset(): void {
   ctx = null;

@@ -41,9 +41,14 @@ const PARES = [
   "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
   "DOGEUSDT", "ADAUSDT", "SUIUSDT", "LINKUSDT", "AVAXUSDT",
 ];
-const TF = "5m";
-const TF_MIN = 5;
-const PAGINAS = 8; // 8 × 1500 velas = 12.000 velas ≈ 41 días por par
+/*
+  La temporalidad entra por argumento: `tsx .probe/stopwidth.ts 4h 240`.
+  En 4H las 12.000 velas son unos cinco años y en diario más de treinta, así
+  que el mismo estudio cubre historias muy distintas sin tocar nada más.
+*/
+const TF = process.argv[2] ?? "5m";
+const TF_MIN = Number(process.argv[3] ?? 5);
+const PAGINAS = 8; // 8 × 1500 velas = 12.000 velas por par
 
 /** Las anchuras a probar, en ATR. La primera es la que usa la app hoy. */
 const ANCHURAS = [1.2, 2, 3, 4, 6];

@@ -37,6 +37,7 @@ export const MAX_PITIDOS = 3;
 const MAX_AVISOS = 12;
 
 const LS_PARES = "liqradar:alarma:pares";
+const LS_ON = "liqradar:alarma:on";
 
 export interface Aviso {
   id: string;
@@ -57,6 +58,8 @@ export interface AlarmaApi {
   avisos: Aviso[];
   limpiarAvisos: () => void;
   alarmaOn: boolean;
+  /** querías sonido pero el navegador aún no lo permite: falta un clic */
+  alarmaPendiente: boolean;
   alternarAlarma: () => void;
   /** pares que avisan; el resto se vigila igual pero en silencio */
   seleccion: string[];
@@ -75,6 +78,33 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     pestaña, que es justo cuando una alarma sirve para algo.
   */
   const [alarmaOn, setAlarmaOn] = useState(false);
+  const [alarmaPendiente, setPendiente] = useState(false);
+
+  /*
+    SE RECUERDA SI LA QUERÍAS ENCENDIDA, pero no se miente sobre si suena.
+
+    Antes se ignoraba la preferencia al recargar, y era molesto de verdad:
+    cada recarga te dejaba sin alarma en silencio. La razón original sigue en
+    pie —el navegador bloquea el audio sin un gesto previo, así que restaurar
+    un botón en verde sería una promesa falsa— pero se puede hacer mejor.
+
+    Se INTENTA arrancar el audio y se comprueba si de verdad quedó sonando.
+    Los navegadores lo permiten sin gesto cuando ya has usado el sitio otras
+    veces. Si sale bien, la alarma vuelve encendida y funcionando. Si no, el
+    botón lo dice y pide un clic, en vez de fingir.
+  */
+  useEffect(() => {
+    if (!storage.read<boolean>(LS_ON, false)) return;
+    let vivo = true;
+    void alarm.tryResume().then((ok) => {
+      if (!vivo) return;
+      if (ok) setAlarmaOn(true);
+      else setPendiente(true);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /*
     QUÉ PARES AVISAN. Antes era un interruptor de dos posiciones —este par o
@@ -123,8 +153,13 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
   */
   const alternarAlarma = useCallback(() => {
     setAlarmaOn((prev) => {
-      if (prev) return false;
+      if (prev) {
+        storage.write(LS_ON, false);
+        return false;
+      }
       const ok = alarm.unlock();
+      storage.write(LS_ON, ok);
+      setPendiente(false);
       /*
         SUENA UNA VEZ AL ACTIVARLA, y no es un adorno.
 
@@ -233,6 +268,7 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     avisos,
     limpiarAvisos,
     alarmaOn,
+    alarmaPendiente,
     alternarAlarma,
     seleccion,
     alternarPar,
