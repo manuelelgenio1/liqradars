@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "reversion-operada",
+    hypothesis: "La reversión de la vela anterior, operada con niveles propios, es rentable en 5 minutos",
+    verdict: "descartada",
+    sample: "6 combinaciones de objetivo y stop · 10 pares · 45.000 velas cada uno (156 días) · 33.333 operaciones y 9.953 sucesos fuera de muestra",
+    numbers:
+      "con objetivo 0,5 y stop 2,0 ATR se acierta el 77,3 % y aun así se pierde 0,54R · el bruto es −0,034R, negativo antes de comisiones",
+    meaning:
+      "Era lo único vivo del proyecto y no sobrevive al operarlo. El efecto medido era de UNA vela; aguantando doce con un stop, la volatilidad normal saca la posición antes de que el rebote llegue, y un stop lo bastante ancho para no saltar es tan ancho que 0,05 ATR de ventaja no significa nada dentro de él. Sirve además de demostración de que perseguir el acierto no sirve: 77,3 % de aciertos y pérdida, porque con esos niveles el equilibrio ANTES de comisiones ya está en el 80 %. Y sobre la muestra: cuadruplicar la historia no movió el resultado, solo estrechó el error — busca y confirmación coinciden casi decimal a decimal.",
+  },
+  {
     id: "hurst-confirmacion",
     hypothesis: "El exponente de Hurst confirma cuándo fiarse de la señal: seguirla si H>0,5, invertirla si H<0,5",
     verdict: "descartada",
