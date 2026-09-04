@@ -96,7 +96,21 @@ export default function TradingViewChart({ api }: { api: MarketApi }) {
   }, [symbol, interval]);
 
   return (
-    <div className="relative h-full min-h-[520px] w-full overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]">
+    /*
+      ALTURA DEFINIDA, NO HEREDADA. Antes era `h-full min-h-[520px]` y el
+      gráfico salía aplastado: el iframe medía 1638 × 150 dentro de una caja de
+      1640 × 520.
+
+      El motivo es que `height: 100%` NO se resuelve contra un padre de altura
+      `auto`, y `min-height` no sirve de base para porcentajes. Así que la
+      cadena de `h-full` se rompía en el primer eslabón sin altura fija y el
+      iframe caía a sus 150 px por defecto, con el borde de 520 dibujado
+      alrededor como si nada.
+
+      Con una altura de viewport la cadena tiene de dónde agarrarse y el
+      autosize del widget hace el resto. El mínimo protege las pantallas bajas.
+    */
+    <div className="relative h-[78vh] min-h-[520px] w-full overflow-hidden rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-1)]">
       <div ref={host} className="h-full w-full" />
 
       {failed && (

@@ -43,7 +43,14 @@ export interface Aviso {
   symbol: string;
   timeframe: string;
   side: Side;
+  /** cuándo NACIÓ la señal */
   at: number;
+  /*
+    Cuándo se DETECTÓ, que no es lo mismo. La ventana flotante caduca contando
+    desde que apareció el aviso, no desde que nació la señal: una de 1W puede
+    tener horas de vida y aun así acabas de enterarte.
+  */
+  seenAt: number;
 }
 
 export interface AlarmaApi {
@@ -199,6 +206,7 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
           timeframe: s.signal.timeframe,
           side: s.signal.side,
           at: s.signal.bornAt,
+          seenAt: Date.now(),
         })),
         ...prev,
       ].slice(0, MAX_AVISOS)

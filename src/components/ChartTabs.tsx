@@ -5,6 +5,7 @@ import type { ConfluenceState } from "../hooks/useConfluence";
 import type { LiqStudyApi } from "../hooks/useLiqStudy";
 import { useTradingDesk } from "../hooks/useTradingDesk";
 import { useSignalAlarm } from "../hooks/useSignalAlarm";
+import SignalToasts from "./SignalToasts";
 import PriceChart from "./PriceChart";
 import TradingViewChart from "./TradingViewChart";
 import TradingPanel from "./TradingPanel";
@@ -108,6 +109,12 @@ export default function ChartTabs({ api, sig, confluence, liq }: Props) {
 
   return (
     <div className="flex h-full flex-col">
+      {/*
+        Flota por encima de TODO y en cualquier pestaña: si solo apareciera en
+        Operar no serviría de nada, porque el momento en que hace falta es
+        justo cuando estás mirando otra cosa.
+      */}
+      <SignalToasts avisos={alarma.avisos} onIr={api.setSymbol} />
       <div className="flex items-end gap-1 overflow-x-auto border-b border-[var(--color-line)] px-1">
         {boton("trade", "Operar", "niveles, señales y aciertos")}
         {boton("liq", "Liquidez", "flujo real ahora mismo")}
