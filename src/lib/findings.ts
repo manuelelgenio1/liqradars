@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "reversion-5m",
+    hypothesis: "El retorno de la vela anterior predice el de la siguiente en 5 minutos",
+    verdict: "no-operable",
+    sample: "quintil superior del movimiento · 10 pares · 2.178 sucesos independientes fuera de muestra",
+    numbers:
+      "reversión de 0,052 a 0,086 ATR con t=−3,15 y −2,81 sobre un listón de 2,50 · mismo signo en las dos mitades · el coste son 0,67 ATR",
+    meaning:
+      "El primer hallazgo estadísticamente sólido del proyecto en dirección de precio, y llegó buscando en la literatura en vez de inventando: Jaquart et al. señalan los retornos rezagados como el rasgo más predictivo a cinco minutos. Existe, es real, sobrevive a la partición y al listón corregido — y es entre ocho y trece veces menor que el coste de operarla. Esa es exactamente la conclusión del propio estudio, que reporta 39 % mensual bruto y negativo neto por lo corto de las tenencias. La señal no es el problema; la frecuencia lo es.",
+  },
+  {
     id: "creador-mercado-vela",
     hypothesis: "Hacer mercado en velas de 5 y 30 minutos es rentable con comisión maker del 0 %",
     verdict: "descartada",
