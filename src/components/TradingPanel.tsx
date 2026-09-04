@@ -250,6 +250,9 @@ function Registro({ desk }: { desk: TradingDesk }) {
     <div className="rounded-xl border border-[var(--color-line)] bg-[rgba(15,21,34,0.55)]">
       <div className="flex items-center gap-3 border-b border-[var(--color-line-soft)] px-4 py-3">
         <span className="seccion">Aciertos de estas señales</span>
+        <span className="nota-sm" title="La mesa sigue los 20 pares de más volumen, no solo el que tienes delante: si no, el registro solo acumularía señales del par donde te quedaste quieto.">
+          {desk.tracked > 0 ? `${desk.tracked} pares · ${desk.liveTotal} vivas` : "cargando pares"}
+        </span>
         <span className="ml-auto font-display text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: col }}>
           {s.verdict}
         </span>
@@ -290,13 +293,23 @@ function Registro({ desk }: { desk: TradingDesk }) {
                   : "—"}
               </span>
             </Dato>
-            <Dato label="Cerradas" title={`${s.wins} ganadas · ${s.losses} perdidas · ${s.expired} expiradas`}>
-              <span className="dato-l">
-                {s.total}
-                {s.total < MIN_SAMPLE && (
-                  <span className="ml-1 text-[11px] font-normal text-[var(--color-dim)]">/ {MIN_SAMPLE}</span>
-                )}
-              </span>
+            {/*
+              DOS CIFRAS, NO UNA. Arriba las señales cerradas; debajo los
+              sucesos independientes, que es lo que de verdad cuenta para el
+              veredicto. La mesa vigila 20 pares y las cripto se mueven juntas:
+              si el consenso gira a la vez en todas, eso es UN dato repetido
+              veinte veces, y contarlo como veinte pruebas haría cantar ventaja
+              donde solo hay un mercado moviéndose entero.
+            */}
+            <Dato
+              label="Cerradas"
+              title={`${s.wins} ganadas · ${s.losses} perdidas · ${s.expired} expiradas. Debajo, los sucesos independientes: las señales nacidas a la vez en varios pares cuentan como una.`}
+            >
+              <span className="dato-l">{s.total}</span>
+              <div className="nota-sm">
+                {s.moments} suceso{s.moments === 1 ? "" : "s"}
+                {s.moments < MIN_SAMPLE && ` / ${MIN_SAMPLE}`}
+              </div>
             </Dato>
           </div>
 

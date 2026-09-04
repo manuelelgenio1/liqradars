@@ -9,7 +9,7 @@ import {
   FRESCA_MAX_R,
   MAX_BARS,
   maybeBirth,
-  prune,
+  pruneAll,
   type DeskSignal,
 } from "./desksignals";
 
@@ -174,20 +174,46 @@ describe("nacimiento: solo cuando el lado CAMBIA", () => {
   });
 });
 
-describe("limpieza", () => {
-  it("descarta las caducadas y las de otro par", () => {
-    const vivas = prune(
-      [larga(), larga({ id: "s2", bornAt: T - MAX_BARS * 60 * 60_000 - 1 }), larga({ id: "s3", symbol: "ETHUSDT" })],
-      "BTCUSDT",
-      100,
-      T
-    );
+describe("limpieza de TODOS los pares a la vez", () => {
+  /*
+    Esto sustituye a una poda que borraba las señales de cualquier par que no
+    fuera el que estabas mirando. Ese era el fallo: si seguías BTC, te ibas a
+    ETH y las de BTC alcanzaban su stop mientras estabas fuera, desaparecían
+    sin quedar anotadas en el registro.
+  */
+  const viejaDe = (sym: string, id: string) =>
+    larga({ id, symbol: sym, bornAt: T - MAX_BARS * 60 * 60_000 - 1 });
+
+  it("descarta las caducadas por tiempo, sea cual sea el par", () => {
+    const vivas = pruneAll([larga(), viejaDe("ETHUSDT", "s2")], { BTCUSDT: 100, ETHUSDT: 100 }, T);
     expect(vivas.map((s) => s.id)).toEqual(["s1"]);
+  });
+
+  it("CONSERVA las de otros pares: antes se perdían sin registrar", () => {
+    const otras = [larga(), larga({ id: "s3", symbol: "ETHUSDT" })];
+    expect(pruneAll(otras, { BTCUSDT: 100, ETHUSDT: 100 }, T).map((s) => s.id)).toEqual(["s1", "s3"]);
+  });
+
+  it("cada señal se juzga con el precio de SU par, no con uno cualquiera", () => {
+    // 97,9 tumbaría a la de BTC (stop 98) pero no debe tocar a la de ETH.
+    const dos = [larga(), larga({ id: "s3", symbol: "ETHUSDT" })];
+    const vivas = pruneAll(dos, { BTCUSDT: 97.9, ETHUSDT: 100 }, T);
+    expect(vivas.map((s) => s.id)).toEqual(["s3"]);
+  });
+
+  it("sin precio de un par solo se le aplica la caducidad por TIEMPO", () => {
+    /*
+      Un par que se cae del universo deja de tener precio. No se puede saber si
+      tocó su stop, pero sí que se le acabó el tiempo. Descartarla por no tener
+      precio sería volver a perder señales sin anotarlas.
+    */
+    const sinPrecio = [larga({ id: "viva" }), viejaDe("BTCUSDT", "caduca")];
+    expect(pruneAll(sinPrecio, {}, T).map((s) => s.id)).toEqual(["viva"]);
   });
 
   it("conserva las vivas aunque vayan en contra", () => {
     // Ir perdiendo no es caducar: mientras no toque el stop, sigue viva.
-    expect(prune([larga()], "BTCUSDT", 98.5, T)).toHaveLength(1);
+    expect(pruneAll([larga()], { BTCUSDT: 98.5 }, T)).toHaveLength(1);
   });
 });
 
@@ -200,14 +226,18 @@ describe("las velas saben de qué par son", () => {
     mesa mezclaba nombre nuevo con datos viejos.
   */
   const vela = (c: number): Candle => ({ t: T, o: c, h: c, l: c, c, v: 1, delta: 0 });
-  const store: CandleStore = { symbol: "SOLUSDT", byTf: { "1H": [vela(103)] } };
+  const store: CandleStore = {
+    SOLUSDT: { "1H": [vela(103)] },
+    BTCUSDT: { "1H": [vela(80795)] },
+  };
 
-  it("sirve las velas cuando el par coincide", () => {
-    expect(candlesFor(store, "SOLUSDT", "1H")).toHaveLength(1);
+  it("sirve las del par que se le pide", () => {
+    expect(candlesFor(store, "SOLUSDT", "1H")[0].c).toBe(103);
+    expect(candlesFor(store, "BTCUSDT", "1H")[0].c).toBe(80795);
   });
 
-  it("NO sirve las de otro par: es lo que fabricaba stops negativos", () => {
-    expect(candlesFor(store, "BTCUSDT", "1H")).toEqual([]);
+  it("un par que no está cargado devuelve vacío: es lo que fabricaba stops negativos", () => {
+    expect(candlesFor(store, "ETHUSDT", "1H")).toEqual([]);
   });
 
   it("un marco que no está cargado devuelve vacío, no undefined", () => {

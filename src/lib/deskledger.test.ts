@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { append, resolve, stats, statsByTimeframe, MIN_SAMPLE, type LedgerEntry } from "./deskledger";
+import { append, momentMeans, MOMENT_MS, resolve, stats, statsByTimeframe, MIN_SAMPLE, type LedgerEntry } from "./deskledger";
 import type { DeskSignal } from "./desksignals";
 import type { Candle } from "./types";
 
@@ -105,9 +105,14 @@ describe("el neto siempre descuenta la comisión", () => {
 
 // ---------------- libro ----------------
 
+/*
+  Cada apunte nace en un MINUTO distinto a propósito: así cuenta como un suceso
+  independiente. Las pruebas de agrupación de más abajo hacen justo lo
+  contrario para comprobar que se detecta.
+*/
 const cerrada = (i: number, r: number, ctrl: number | null = 0, tf = "1H"): LedgerEntry => ({
   id: `e${i}`, symbol: "BTCUSDT", timeframe: tf, side: "long",
-  bornAt: T + i, resolvedAt: T + i + 1000, entry: 100, stop: 98, target: 104,
+  bornAt: T + i * MOMENT_MS, resolvedAt: T + i * MOMENT_MS + 1000, entry: 100, stop: 98, target: 104,
   outcome: r > 0 ? "ganada" : "perdida", r, rNet: r - 0.07, costR: 0.07,
   ambiguous: false, controlSide: "long", controlR: ctrl,
 });
@@ -187,5 +192,76 @@ describe("cuentas", () => {
 
   it("el mínimo de muestra es coherente", () => {
     expect(MIN_SAMPLE).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe("veinte pares no son veinte pruebas", () => {
+  /*
+    La mesa vigila 20 pares y el consenso suele girar en casi todos a la vez,
+    porque las cripto se mueven juntas. Contar cada señal como una prueba
+    independiente inflaría la t por √n y haría cantar VENTAJA donde solo hay un
+    mercado moviéndose entero.
+
+    Es el mismo error que ya salió contando cascadas de liquidaciones: una
+    cascada que toca 15 pares es UN suceso, no quince.
+  */
+  const aLaVez = (n: number, r: number, t = T): LedgerEntry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      ...cerrada(i, r),
+      id: `sim${t}-${i}`,
+      symbol: `PAR${i}USDT`,
+      bornAt: t,
+      resolvedAt: t + 1000,
+    }));
+
+  it("señales nacidas en el mismo instante son UN suceso", () => {
+    expect(momentMeans(aLaVez(20, 1))).toHaveLength(1);
+  });
+
+  it("dentro de un suceso se promedia, no se suma", () => {
+    const mezcla = [...aLaVez(1, 2), ...aLaVez(1, 0).map((e) => ({ ...e, id: "otro", rNet: 0 }))];
+    expect(momentMeans(mezcla)[0]).toBeCloseTo((2 - 0.07 + 0) / 2, 8);
+  });
+
+  it("nacidas en minutos distintos son sucesos distintos", () => {
+    const dos = [...aLaVez(5, 1, T), ...aLaVez(5, 1, T + MOMENT_MS)];
+    expect(momentMeans(dos)).toHaveLength(2);
+  });
+
+  it("LA REGRESIÓN: 120 señales de un solo giro NO son muestra", () => {
+    /*
+      Sin agrupar, esto daría 120 filas, superaría el mínimo de 20 y emitiría
+      un veredicto. Es exactamente la trampa que este proyecto lleva evitando
+      desde el principio.
+    */
+    const s = stats(aLaVez(120, 2));
+    expect(s.total).toBe(120);
+    expect(s.moments).toBe(1);
+    expect(s.verdict).toBe("MUESTRA CORTA");
+    expect(s.note).toContain("mismo giro de mercado");
+  });
+
+  it("la t se calcula sobre sucesos: agrupar la BAJA", () => {
+    /*
+      Los MISMOS resultados y la MISMA media, cambiando solo cuándo nacieron.
+      Repartidos hay 30 observaciones; amontonados en 3 giros, solo tres. La
+      media no se mueve; lo que se desploma es la confianza, que es justo lo
+      que debe pasar.
+    */
+    const repartidas = Array.from({ length: 30 }, (_, i) => cerrada(i, i * 0.1 - 1.0));
+    // en bloques de diez consecutivos, para que los grupos no salgan idénticos
+    const amontonadas = repartidas.map((e, i) => ({ ...e, bornAt: T + Math.floor(i / 10) * MOMENT_MS }));
+
+    expect(stats(repartidas).expectancyNet).toBeCloseTo(stats(amontonadas).expectancyNet, 8);
+    expect(stats(repartidas).moments).toBe(30);
+    expect(stats(amontonadas).moments).toBe(3);
+    expect(Math.abs(stats(amontonadas).tStat)).toBeLessThan(Math.abs(stats(repartidas).tStat));
+  });
+
+  it("el porcentaje de aciertos sigue contando SEÑALES, no sucesos", () => {
+    // Para "de cada cien entradas, cuántas ganan" la unidad correcta es la
+    // señal. La agrupación es para juzgar significancia, no para contar.
+    expect(stats(aLaVez(120, 2)).total).toBe(120);
+    expect(stats(aLaVez(120, 2)).hitRate).toBe(1);
   });
 });

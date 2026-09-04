@@ -12,7 +12,7 @@ import {
   EMPTY_STORE,
   evaluateSignal,
   maybeBirth,
-  prune,
+  pruneAll,
   type DeskSignal,
   type SignalState,
 } from "../lib/desksignals";
@@ -52,8 +52,14 @@ export interface ScanRow {
 const LS_SIGNALS = "liqradar:desksignals:v1";
 
 export interface TradingDesk {
-  /** señales vivas del par activo, con su edad y frescura */
+  /** señales vivas del par ACTIVO, con su edad y frescura */
   signals: SignalState[];
+  /** cuántas señales vigila la mesa en total, de todos los pares */
+  liveTotal: number;
+  /** cuántos pares tienen velas cargadas ahora mismo */
+  tracked: number;
+  sweeping: boolean;
+  sweptAt: number;
   /** señales ya cerradas contra velas reales */
   ledger: ledger.LedgerEntry[];
   ledgerStats: ledger.LedgerStats;
@@ -97,14 +103,20 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   // vivo se aplica encima sin volver a descargar: por eso no está en las
   // dependencias de este efecto.
   /*
-    LAS VELAS VIAJAN ETIQUETADAS CON SU PAR. `symbol` cambia en el acto al
-    pulsar otro par, pero descargar las velas nuevas tarda unos segundos.
-    Cuando esto era un simple mapa por temporalidad, durante esa ventana la
-    mesa tenía el nombre nuevo y los datos viejos, y nacían señales con las dos
-    cosas mezcladas: observado en vivo pasando de SOL a BTC, seis señales
-    BTCUSDT con el precio de SOL y el ATR de BTC, una con el stop en −7384.
+    UN SOLO ALMACÉN, INDEXADO POR PAR. Lo llenan dos cosas: el par activo, que
+    se refresca rápido porque es el que se ve, y un barrido de fondo que
+    recorre los 20 del universo para que sus señales también nazcan, caduquen
+    y queden anotadas aunque no los estés mirando.
+
+    Que las velas vayan indexadas por par es además lo que impide el fallo que
+    esto tenía: `symbol` cambia en el acto al pulsar otro par pero sus velas
+    tardan segundos, y con un mapa plano la mesa mezclaba nombre nuevo con
+    datos viejos — seis señales BTCUSDT nacidas con el precio de SOL y el ATR
+    de BTC, una con el stop en −7384.
   */
   const [store, setStore] = useState<CandleStore>(EMPTY_STORE);
+  const [sweptAt, setSweptAt] = useState(0);
+  const [sweeping, setSweeping] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +141,8 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         if (r.status === "fulfilled") mapa[r.value[0]] = r.value[1];
         else fallos.push(DESK_TFS[i]);
       });
-      setStore({ symbol, byTf: mapa });
+      // Se FUNDE, no se reemplaza: el resto de pares siguen vigilados.
+      setStore((prev) => ({ ...prev, [symbol]: mapa }));
       setFailed(fallos);
       setLoading(false);
     };
@@ -168,6 +181,30 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   const align = useMemo(() => alignment(rows), [rows]);
 
   /*
+    Filas de TODOS los pares vigilados, para que puedan nacer señales de
+    cualquiera de ellos.
+
+    OJO CON EL COSTE: son 20 pares × 6 marcos = 120 cálculos de indicadores
+    sobre 300 velas cada uno. Por eso NO llevan el precio en vivo — con él
+    dependerían del tick y se recalcularían enteras varias veces por segundo.
+    Sin él usan el cierre de la última vela, así que esto solo se rehace cuando
+    llegan velas nuevas: una vez por barrido.
+
+    El par activo es la excepción y sigue usando `rows`, con precio en vivo,
+    porque es el que se ve y el que tiene tick propio.
+  */
+  const allRows = useMemo(() => {
+    const out: Record<string, TradeLevels[]> = {};
+    for (const sym of Object.keys(store)) {
+      out[sym] = DESK_TFS.map((key) => {
+        const tf = TIMEFRAMES.find((t) => t.key === key)!;
+        return computeLevels(key, tf.label, candlesFor(store, sym, key), tf.minutes);
+      });
+    }
+    return out;
+  }, [store]);
+
+  /*
     ---------- señales que nacen, envejecen y caducan ----------
 
     Se guardan en disco porque la EDAD es el dato: si se perdieran al recargar
@@ -184,32 +221,47 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   const symbolRef = useLatest(symbol);
   const priceRef = useLatest(livePrice);
 
+  const allRowsRef = useLatest(allRows);
+  // Declarado aquí y no junto al escáner: el ciclo lo usa antes.
+  const universeRef = useLatest(universe);
+
   useEffect(() => {
     const tick = () => {
       const now = Date.now();
       const sym = symbolRef.current;
-      const price = priceRef.current;
-      if (!(price > 0)) return;
-
-      /*
-        Antes de retirar las caducadas se INTENTA CERRARLAS contra velas
-        reales. Si se descartaran sin más, la mesa emitiria señales y no
-        rendiria cuentas de ellas — que es justo lo que hace el resto del
-        sector.
-      */
-      /*
-        Si las velas cargadas son de otro par, este ciclo no hace NADA: ni
-        cierra ni engendra. Con datos prestados sólo se pueden fabricar
-        señales falsas y apuntes falsos en el registro.
-      */
-      const velasDe = storeRef.current;
-      if (velasDe.symbol !== sym) return;
-
+      const st = storeRef.current;
       const previas = signalsRef.current;
+
+      /*
+        UN PRECIO POR PAR. El activo lo tiene en vivo; los demás salen del
+        ranking por volumen y, si un par no está ahí, del cierre de su última
+        vela. Sin esto no se podría juzgar si una señal de otro par tocó su
+        stop, que es justo lo que antes se resolvía borrándola.
+      */
+      const precios: Record<string, number> = {};
+      for (const u of universeRef.current) {
+        if (u.lastPrice > 0) precios[u.symbol] = u.lastPrice;
+      }
+      for (const otro of Object.keys(st)) {
+        if (precios[otro] > 0) continue;
+        const cierre = candlesFor(st, otro, DESK_TFS[0]).at(-1)?.c;
+        if (cierre && cierre > 0) precios[otro] = cierre;
+      }
+      if (priceRef.current > 0) precios[sym] = priceRef.current;
+
+      /*
+        1. CERRAR CONTRA VELAS REALES, DE TODOS LOS PARES.
+
+        Antes este bucle saltaba las señales de otros pares y la poda las
+        borraba. Resultado: si seguías BTC, te ibas a ETH y las de BTC tocaban
+        su stop mientras estabas fuera, se perdían sin quedar anotadas. El
+        libro solo acumulaba las del par en el que te quedabas quieto — que no
+        es una muestra de las señales de la mesa, sino de las que casualmente
+        mirabas.
+      */
       const cerradas: ledger.LedgerEntry[] = [];
       for (const s of previas) {
-        if (s.symbol !== sym) continue;
-        const velas = candlesFor(velasDe, sym, s.timeframe);
+        const velas = candlesFor(st, s.symbol, s.timeframe);
         if (!velas.length) continue;
         const e = ledger.resolve(s, velas);
         if (e) cerradas.push(e);
@@ -222,33 +274,41 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         });
       }
 
-      // ahora sí: se retiran las caducadas y se mira si nace alguna
-      let vivas = prune(previas, sym, price, now).filter(
+      // 2. retirar las caducadas, cada una con el precio de SU par
+      let vivas = pruneAll(previas, precios, now).filter(
         (s) => !cerradas.some((e) => e.id === s.id)
       );
       let cambio = vivas.length !== previas.length;
 
-      for (const r of rowsRef.current) {
-        if (!r.ready) continue;
-        const previa = vivas.find((s) => s.timeframe === r.timeframe);
-        const nueva = maybeBirth(
-          {
-            symbol: sym,
-            timeframe: r.timeframe,
-            tfMinutes: TIMEFRAMES.find((t) => t.key === r.timeframe)?.minutes ?? 60,
-            side: r.side,
-            price: r.price,
-            atr: r.atr,
-            strength: r.strength,
-            stopAtr: STOP_ATR,
-            targetAtr: TARGET_ATR,
-          },
-          previa,
-          now
-        );
-        if (nueva) {
-          vivas = [nueva, ...vivas.filter((s) => s.timeframe !== r.timeframe)];
-          cambio = true;
+      // 3. ver si nace alguna, en cualquier par vigilado
+      for (const [simbolo, filasDelPar] of Object.entries(allRowsRef.current)) {
+        // el activo usa sus filas con precio en vivo; los demás, las del cierre
+        const filas = simbolo === sym ? rowsRef.current : filasDelPar;
+        for (const r of filas) {
+          if (!r.ready) continue;
+          const previa = vivas.find((s) => s.symbol === simbolo && s.timeframe === r.timeframe);
+          const nueva = maybeBirth(
+            {
+              symbol: simbolo,
+              timeframe: r.timeframe,
+              tfMinutes: TIMEFRAMES.find((t) => t.key === r.timeframe)?.minutes ?? 60,
+              side: r.side,
+              price: r.price,
+              atr: r.atr,
+              strength: r.strength,
+              stopAtr: STOP_ATR,
+              targetAtr: TARGET_ATR,
+            },
+            previa,
+            now
+          );
+          if (nueva) {
+            vivas = [
+              nueva,
+              ...vivas.filter((s) => !(s.symbol === simbolo && s.timeframe === r.timeframe)),
+            ];
+            cambio = true;
+          }
         }
       }
 
@@ -263,7 +323,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     return () => window.clearInterval(id);
     // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
     // siempre el mismo, así que incluirlos NO relanza el efecto.
-  }, [storeRef, priceRef, rowsRef, signalsRef, symbolRef]);
+  }, [allRowsRef, storeRef, priceRef, rowsRef, signalsRef, symbolRef, universeRef]);
 
   const ledgerStats = useMemo(() => ledger.stats(ledgerEntries), [ledgerEntries]);
   const ledgerByTf = useMemo(() => ledger.statsByTimeframe(ledgerEntries), [ledgerEntries]);
@@ -273,13 +333,19 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   }, []);
 
   // El estado de cada señal se deriva del precio: no se guarda.
+  /*
+    Se ENSEÑAN solo las del par activo. La mesa vigila los 20, pero volcar 120
+    tarjetas en pantalla no es informar, es esconder. Las de los demás siguen
+    vivas, caducan y se anotan en el registro sin pedir sitio.
+  */
   const signalStates = useMemo(
     () =>
       signals
+        .filter((s) => s.symbol === symbol)
         .map((s) => evaluateSignal(s, livePrice, now))
         .filter((s) => s.expiredReason === null)
         .sort((a, b) => a.signal.tfMinutes - b.signal.tfMinutes),
-    [signals, livePrice, now]
+    [signals, symbol, livePrice, now]
   );
 
   // ---------- universo ----------
@@ -304,10 +370,76 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     };
   }, []);
 
+  /*
+    ---------- barrido de fondo: los 20 pares ----------
+
+    Sin esto, la mesa solo sabía del par que tenías delante y el registro solo
+    acumulaba señales de ese. Con 20 pares vigilados el libro llega a muestra
+    útil MUCHO antes, y sobre todo deja de estar sesgado por dónde tenías
+    puesta la vista.
+
+    EL COSTE, medido y no estimado: 20 pares × 6 marcos = 120 peticiones de
+    velas. Con `limit=300` cada una pesa 2 en el contador de Binance, así que
+    un barrido son 240 de los 2400 por minuto que permite. Cada tres minutos
+    deja el gasto en 80/min: holgado.
+
+    Va par a par, con sus seis marcos en paralelo. Seis peticiones a la vez es
+    prudente; las 120 de golpe devuelven 429.
+
+    UN SOLO `setStore` AL FINAL, y esto importa: cada cambio del almacén rehace
+    las filas de los 20 pares. Guardando par a par serían veinte recálculos de
+    120 marcos cada uno en cada barrido.
+  */
+  const universeKey = useMemo(() => universe.map((u) => u.symbol).join(","), [universe]);
+
+  useEffect(() => {
+    if (!universeKey) return;
+    let cancelled = false;
+    const simbolos = universeKey.split(",");
+
+    const barrer = async () => {
+      setSweeping(true);
+      const acumulado: CandleStore = {};
+      for (const sym of simbolos) {
+        if (cancelled) return;
+        const res = await Promise.allSettled(
+          DESK_TFS.map(async (key) => {
+            const tf = TIMEFRAMES.find((t) => t.key === key);
+            if (!tf) throw new Error(`temporalidad desconocida: ${key}`);
+            return [key, await binance.fetchCandles(sym, tf.binance, CANDLES, "perp")] as const;
+          })
+        );
+        const porTf: Record<string, Candle[]> = {};
+        for (const r of res) if (r.status === "fulfilled") porTf[r.value[0]] = r.value[1];
+        if (Object.keys(porTf).length) acumulado[sym] = porTf;
+      }
+      if (cancelled) return;
+      /*
+        Se conserva SOLO lo del universo actual. Un par que se cae del ranking
+        dejaría sus velas ahí ocupando memoria para siempre; sus señales vivas
+        no se pierden — caducan por tiempo, que es lo único juzgable sin datos.
+      */
+      setStore((prev) => {
+        const activo = prev[symbolRef.current];
+        const next: CandleStore = { ...acumulado };
+        if (activo && !next[symbolRef.current]) next[symbolRef.current] = activo;
+        return next;
+      });
+      setSweptAt(Date.now());
+      setSweeping(false);
+    };
+
+    void barrer();
+    const id = window.setInterval(() => void barrer(), 180_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [universeKey, symbolRef]);
+
   // ---------- escáner ----------
   // Sin refs, `runScan` se recrearía en cada cambio del universo y el botón
   // perdería su identidad; con ellos el callback es estable.
-  const universeRef = useLatest(universe);
   const scanTfRef = useLatest(scanTf);
 
   const runScan = useCallback(() => {
@@ -345,6 +477,10 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
 
   return {
     signals: signalStates,
+    liveTotal: signals.length,
+    tracked: Object.keys(store).length,
+    sweeping,
+    sweptAt,
     ledger: ledgerEntries,
     ledgerStats,
     ledgerByTf,

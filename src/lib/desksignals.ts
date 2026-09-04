@@ -183,41 +183,55 @@ export function maybeBirth(
   };
 }
 
-/** Se descartan las que ya no aportan: caducadas y de otro par. */
-export function prune(sigs: DeskSignal[], symbol: string, price: number, now: number): DeskSignal[] {
-  return sigs.filter((s) => {
-    if (s.symbol !== symbol) return false;
-    return evaluateSignal(s, price, now).expiredReason === null;
-  });
-}
-
 // ============================================================
-// LAS VELAS SABEN DE QUÉ PAR SON.
+// LAS VELAS SABEN DE QUÉ PAR SON, Y LA MESA SIGUE A TODOS.
 //
-// Al cambiar de par, `symbol` cambia en el acto pero las velas del nuevo
-// tardan unos segundos en llegar. Durante esa ventana la mesa tenía el nombre
-// nuevo y los datos viejos, y fabricaba señales con las dos cosas mezcladas.
+// Dos fallos con la misma raíz: no había constancia de a qué par pertenecía
+// cada dato.
 //
-// Observado en vivo pasando de SOL a BTC: seis señales etiquetadas BTCUSDT
-// nacidas con el precio de SOL (103) y el ATR de BTC, con un stop en −7384.
-// Un precio negativo. Sonaba la alarma, se guardaban en disco y podían acabar
-// en el registro de aciertos — el registro que existe precisamente para poder
-// fiarse de él.
+// EL PRIMERO, señales con datos mezclados. Al cambiar de par `symbol` cambia
+// en el acto pero las velas del nuevo tardan segundos. Observado en vivo
+// pasando de SOL a BTC: seis señales etiquetadas BTCUSDT nacidas con el precio
+// de SOL (103) y el ATR de BTC, una con el stop en −7384. Un precio negativo.
 //
-// La cura es que las velas viajen etiquetadas y se nieguen a servir a otro
-// par. Sin velas, `computeLevels` devuelve `ready: false` y no nace nada.
+// EL SEGUNDO, y peor para el registro: la poda BORRABA las señales de los
+// demás pares. Si seguías BTC, te ibas a ETH y las de BTC alcanzaban su stop
+// mientras estabas fuera, desaparecían sin quedar anotadas. El libro solo
+// acumulaba las del par en el que te quedaste quieto — que no es una muestra
+// de las señales de la mesa, es una muestra de las que casualmente mirabas.
+//
+// Ahora el almacén va indexado POR PAR y la poda juzga cada señal con el
+// precio del SUYO. Sin velas de un par no nace nada de él, y sin precio de un
+// par solo se le puede aplicar la caducidad por tiempo.
 // ============================================================
 
-export interface CandleStore {
-  /** par al que pertenecen estas velas */
-  symbol: string;
-  byTf: Record<string, Candle[]>;
-}
+/** velas indexadas por par y luego por temporalidad */
+export type CandleStore = Record<string, Record<string, Candle[]>>;
 
-export const EMPTY_STORE: CandleStore = { symbol: "", byTf: {} };
+export const EMPTY_STORE: CandleStore = {};
 
-/** Velas de un marco, SOLO si son del par que se está mirando. */
+/** Velas de un marco de un par. Vacío si no hay: nunca las de otro. */
 export function candlesFor(store: CandleStore, symbol: string, timeframe: string): Candle[] {
-  if (!store || store.symbol !== symbol) return [];
-  return store.byTf[timeframe] ?? [];
+  return store?.[symbol]?.[timeframe] ?? [];
+}
+
+/**
+ * Retira las caducadas de TODOS los pares, cada una juzgada con el precio del
+ * suyo.
+ *
+ * Sin precio de un par no se puede saber si tocó su stop, pero sí si se le
+ * acabó el tiempo — y eso se comprueba pasándole su propia entrada como
+ * precio: ahí no toca ni stop ni objetivo, así que solo puede caducar por
+ * tiempo. Se reutiliza la misma lógica ya probada en vez de duplicarla.
+ */
+export function pruneAll(
+  sigs: DeskSignal[],
+  precios: Record<string, number>,
+  now: number
+): DeskSignal[] {
+  return sigs.filter((s) => {
+    const p = precios[s.symbol];
+    const ref = p > 0 ? p : s.entry;
+    return evaluateSignal(s, ref, now).expiredReason === null;
+  });
 }

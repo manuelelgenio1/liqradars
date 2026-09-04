@@ -182,7 +182,9 @@ export interface LedgerStats {
   /** esperanza de la moneda al aire, en las mismas condiciones */
   controlExpectancy: number;
   controlHitRate: number;
-  /** cuántas desviaciones típicas se aparta el neto de cero */
+  /** sucesos independientes: señales nacidas a la vez cuentan como uno */
+  moments: number;
+  /** cuántas desviaciones típicas se aparta el neto de cero, POR SUCESO */
   tStat: number;
   verdict: "SIN DATOS" | "MUESTRA CORTA" | "SIN VENTAJA" | "PIERDE" | "VENTAJA";
   note: string;
@@ -190,6 +192,34 @@ export interface LedgerStats {
 
 /** Por debajo de esto, cualquier porcentaje es ruido. */
 export const MIN_SAMPLE = 20;
+
+/**
+ * Señales nacidas a la vez son UN suceso, no N.
+ *
+ * ESTO NO ES UN DETALLE. La mesa vigila 20 pares y el consenso suele girar en
+ * casi todos a la vez, porque las cripto se mueven juntas. Si un giro general
+ * pare 120 señales y se contaran como 120 pruebas independientes, la t saldría
+ * inflada por √120 y el libro cantaría VENTAJA con una muestra que en realidad
+ * es un puñado de sucesos.
+ *
+ * Es el mismo error que ya nos salió al contar cascadas de liquidaciones: una
+ * cascada que toca 15 pares es un suceso, no quince.
+ *
+ * Se agrupa por instante de nacimiento y se promedia dentro del grupo. Lo que
+ * sale es una observación por suceso, y sobre eso sí se puede hacer una t.
+ */
+export const MOMENT_MS = 60_000;
+
+export function momentMeans(entries: LedgerEntry[], bucketMs = MOMENT_MS): number[] {
+  const g = new Map<number, number[]>();
+  for (const e of entries) {
+    const k = Math.floor(e.bornAt / bucketMs);
+    const prev = g.get(k);
+    if (prev) prev.push(e.rNet);
+    else g.set(k, [e.rNet]);
+  }
+  return [...g.values()].map((v) => v.reduce((a, b) => a + b, 0) / v.length);
+}
 
 const media = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
 
@@ -210,11 +240,18 @@ export function stats(entries: LedgerEntry[]): LedgerStats {
   const controlExpectancy = media(ctrl);
   const controlHitRate = ctrl.length ? ctrl.filter((r) => r > 0).length / ctrl.length : NaN;
 
+  /*
+    LA t SE CALCULA SOBRE SUCESOS, NO SOBRE SEÑALES. Con 20 pares correlacionados
+    las filas no son independientes; usarlas todas inflaría la t por √n y haría
+    cantar ventaja donde solo hay un mercado moviéndose entero.
+  */
+  const sucesos = momentMeans(entries);
+  const mediaSucesos = media(sucesos);
   const sd =
-    nets.length > 1
-      ? Math.sqrt(nets.reduce((s, x) => s + (x - expectancyNet) ** 2, 0) / (nets.length - 1))
+    sucesos.length > 1
+      ? Math.sqrt(sucesos.reduce((s, x) => s + (x - mediaSucesos) ** 2, 0) / (sucesos.length - 1))
       : NaN;
-  const tStat = sd > 0 ? expectancyNet / (sd / Math.sqrt(nets.length)) : NaN;
+  const tStat = sd > 0 ? mediaSucesos / (sd / Math.sqrt(sucesos.length)) : NaN;
 
   const edge = expectancyNet - controlExpectancy;
 
@@ -224,9 +261,16 @@ export function stats(entries: LedgerEntry[]): LedgerStats {
     verdict = "SIN DATOS";
     note =
       "Todavía no se ha cerrado ninguna señal de la mesa. El registro empieza vacío a propósito: nace cuando el consenso cambia de lado y se cierra contra velas reales.";
-  } else if (n < MIN_SAMPLE) {
+  } else if (sucesos.length < MIN_SAMPLE) {
+    /*
+      El listón se pone en SUCESOS, no en señales. 120 señales nacidas en el
+      mismo giro de mercado son un dato, no ciento veinte.
+    */
     verdict = "MUESTRA CORTA";
-    note = `${n} de ${MIN_SAMPLE} señales cerradas. Por debajo de eso cualquier porcentaje es ruido.`;
+    note =
+      sucesos.length === n
+        ? `${n} de ${MIN_SAMPLE} señales cerradas. Por debajo de eso cualquier porcentaje es ruido.`
+        : `${n} señales cerradas, pero solo ${sucesos.length} de ${MIN_SAMPLE} sucesos independientes: las que nacen a la vez en varios pares son el mismo giro de mercado contado muchas veces.`;
   } else if (expectancyNet <= -0.1) {
     verdict = "PIERDE";
     note =
@@ -257,6 +301,7 @@ export function stats(entries: LedgerEntry[]): LedgerStats {
     totalRNet: nets.reduce((a, b) => a + b, 0),
     controlExpectancy,
     controlHitRate,
+    moments: sucesos.length,
     tStat,
     verdict,
     note,
