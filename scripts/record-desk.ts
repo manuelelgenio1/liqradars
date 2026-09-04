@@ -31,14 +31,23 @@
   todo cuelga del cierre de la última vela terminada, así que dos ejecuciones
   sobre los mismos datos dan lo mismo.
 
-  UNA DECISIÓN POR VELA. `maybeBirth` vuelve a abrir cuando la anterior ya se
-  resolvió, aunque el lado no haya cambiado — en la app eso es correcto, porque
-  la operación terminó de verdad y la siguiente entra a un precio nuevo. Con un
-  reloj horario y precios de cierre saldrían cuatro señales idénticas por cada
-  vela de 4H, que no son cuatro operaciones sino una contada cuatro veces. Por
-  eso se recuerda la última vela juzgada de cada par y marco, y no se vuelve a
-  mirar hasta que cierre una nueva. De paso hace la ejecución idempotente:
-  repetirla dentro de la misma hora no cambia nada.
+  UNA DECISIÓN POR VELA, NI MÁS NI MENOS. `maybeBirth` vuelve a abrir cuando la
+  anterior ya se resolvió, aunque el lado no haya cambiado — en la app eso es
+  correcto, porque la operación terminó de verdad y la siguiente entra a un
+  precio nuevo. Con un reloj horario y precios de cierre saldrían cuatro
+  señales idénticas por cada vela de 4H, que no son cuatro operaciones sino una
+  contada cuatro veces. Por eso se recuerda la última vela juzgada de cada par
+  y marco.
+
+  Y AL REVÉS, TAMPOCO MENOS DE UNA: el cron de GitHub se salta ejecuciones —en
+  este repositorio, uno horario corre de hecho cada tres horas— así que juzgar
+  solo la última vela cerrada perdería velas en cada hueco. Se recuperan las
+  atrasadas, cada una con las velas que había HASTA ella y ni una más, que es
+  lo que hace que la decisión sea la que se habría tomado entonces.
+
+  Las dos reglas juntas dan lo que hace falta: exactamente un juicio por vela,
+  llegue el despertador puntual o con tres horas de retraso. Y de paso la
+  ejecución es idempotente — repetirla no cambia nada.
 
   MARCOS. 1H, 4H, diario y semanal. NO 5m ni 30m: con un despertar por hora,
   una señal de 5 minutos nace y muere entre dos ejecuciones y no habría forma
@@ -58,6 +67,27 @@ const FICHERO = "data/deskledger.json";
 const MARCOS = ["1H", "4H", "1D", "1W"] as const;
 const VELAS = 400;
 const PARES = 20;
+/*
+  CUÁNTAS VELAS ATRASADAS SE RECUPERAN, y por qué hay un tope.
+
+  El cron de GitHub es "mejor esfuerzo": se retrasa y se salta ejecuciones bajo
+  carga. Medido en este mismo repositorio, el grabador de liquidaciones tiene
+  cron horario y corre una vez cada TRES horas. Juzgando solo la última vela
+  cerrada se perderían velas de 1H en cada hueco, y de 4H en cuanto el hueco
+  pase de cinco horas. Así que se recuperan todas las que quedaron sin juzgar.
+
+  EL TOPE ESTÁ PARA QUE ESTO NO SE CONVIERTA EN HISTORIA RELLENADA. Un registro
+  vale como prueba porque cada apunte se escribió ANTES de conocerse su
+  desenlace. Recuperar unas pocas velas atrasadas mantiene esa propiedad —la
+  regla lleva días escrita en git, así que no se pudo elegir viendo el
+  resultado— pero recuperar cuatrocientas sería reconstruir el pasado, que es
+  exactamente el tipo de dato que este proyecto ya tiene de sobra y que no
+  cierra nada. Si el hueco pasa del tope, se salta y se anota.
+
+  Un par que se ve por primera vez tampoco se rellena: se le marca la vela
+  actual y a partir de ahí cuenta hacia delante.
+*/
+const MAX_ATRASO = 24;
 /** Tope del libro. A ~3 apuntes al día tarda años en llegar, pero un fichero
  *  que crece sin límite acaba siendo un problema de otro. */
 const MAX_APUNTES = 20_000;
@@ -132,6 +162,8 @@ function salida(clave: string, valor: string): void {
 
 async function main(): Promise<void> {
   const estado = leerEstado();
+  // Copia intacta del estado de partida, para saber al final si cambió algo.
+  const antes: Estado = JSON.parse(JSON.stringify(estado)) as Estado;
   const antesAbiertas = estado.abiertas.length;
   const antesCerradas = estado.cerradas.length;
 
@@ -141,6 +173,7 @@ async function main(): Promise<void> {
 
   let nacidas = 0;
   let fallos = 0;
+  let saltadas = 0;
 
   for (const u of universo) {
     for (const key of MARCOS) {
@@ -160,52 +193,76 @@ async function main(): Promise<void> {
       await sleep(80);
 
       const ultima = velas[velas.length - 1];
-
-      // 1. cerrar lo que las velas ya resolvieron
-      const cerradasAhora: LedgerEntry[] = [];
-      estado.abiertas = estado.abiertas.filter((s) => {
-        if (s.symbol !== u.symbol || s.timeframe !== key) return true;
-        const apunte = resolverSenal(s, velas);
-        if (!apunte) return true;
-        cerradasAhora.push(apunte);
-        return false;
-      });
-      if (cerradasAhora.length) estado.cerradas = append(estado.cerradas, cerradasAhora);
-
-      // 2. una decisión por vela, y solo cuando hay una nueva cerrada
       const clave = `${u.symbol}|${key}`;
-      if ((estado.ultimaBarra[clave] ?? 0) >= ultima.t) continue;
-      estado.ultimaBarra[clave] = ultima.t;
-
-      const fila = computeLevels(key, tf.label, velas, tf.minutes);
-      if (!fila.ready) continue;
+      const visto = estado.ultimaBarra[clave] ?? 0;
 
       /*
-        La señal se fecha en la APERTURA de la última vela cerrada, no en su
-        cierre. Parece un detalle y no lo es: `resolve` toma como futuras las
-        velas con `t > bornAt`, así que fechar en el cierre —que coincide con
-        la apertura de la siguiente— se saltaría la primera vela de vida de la
-        operación. Con la apertura, la resolución empieza justo en la vela
-        siguiente, que es donde empieza de verdad.
+        QUÉ VELAS HAY QUE JUZGAR. Todas las cerradas desde la última que se
+        juzgó. Primera vez que se ve el par: solo la actual, sin rellenar hacia
+        atrás. Hueco mayor que el tope: se salta a la actual y se avisa.
       */
-      const nace = maybeBirth(
-        {
-          symbol: u.symbol,
-          timeframe: key,
-          tfMinutes: tf.minutes,
-          side: fila.side,
-          price: fila.price,
-          atr: fila.atr,
-          strength: fila.strength,
-          stopAtr: STOP_ATR,
-          targetAtr: TARGET_ATR,
-        },
-        latestFor(estado.abiertas, u.symbol, key),
-        ultima.t
-      );
-      if (nace) {
-        estado.abiertas.unshift(nace);
-        nacidas++;
+      let pendientes = visto === 0 ? [velas.length - 1] : [];
+      if (visto > 0) {
+        for (let i = 0; i < velas.length; i++) if (velas[i].t > visto) pendientes.push(i);
+        if (pendientes.length > MAX_ATRASO) {
+          saltadas += pendientes.length - MAX_ATRASO;
+          pendientes = pendientes.slice(-MAX_ATRASO);
+        }
+      }
+      if (!pendientes.length) continue;
+
+      for (const i of pendientes) {
+        /*
+          Las velas HASTA esa, y ni una más. Es lo que hace que la decisión sea
+          la que se habría tomado en ese momento: `computeLevels` mira la
+          última del trozo que se le pasa, así que recortar aquí es lo que
+          impide mirar al futuro al recuperar el atraso.
+        */
+        const trozo = velas.slice(0, i + 1);
+
+        // 1. cerrar lo que las velas ya resolvieron, con lo conocido entonces
+        const cerradasAhora: LedgerEntry[] = [];
+        estado.abiertas = estado.abiertas.filter((s) => {
+          if (s.symbol !== u.symbol || s.timeframe !== key) return true;
+          const apunte = resolverSenal(s, trozo);
+          if (!apunte) return true;
+          cerradasAhora.push(apunte);
+          return false;
+        });
+        if (cerradasAhora.length) estado.cerradas = append(estado.cerradas, cerradasAhora);
+
+        // 2. y ver si nace una en esa vela
+        estado.ultimaBarra[clave] = velas[i].t;
+        const fila = computeLevels(key, tf.label, trozo, tf.minutes);
+        if (!fila.ready) continue;
+
+        /*
+          La señal se fecha en la APERTURA de su vela, no en el cierre. Parece
+          un detalle y no lo es: `resolve` toma como futuras las velas con
+          `t > bornAt`, así que fechar en el cierre —que coincide con la
+          apertura de la siguiente— se saltaría la primera vela de vida de la
+          operación. Con la apertura, la resolución empieza justo en la
+          siguiente, que es donde empieza de verdad.
+        */
+        const nace = maybeBirth(
+          {
+            symbol: u.symbol,
+            timeframe: key,
+            tfMinutes: tf.minutes,
+            side: fila.side,
+            price: fila.price,
+            atr: fila.atr,
+            strength: fila.strength,
+            stopAtr: STOP_ATR,
+            targetAtr: TARGET_ATR,
+          },
+          latestFor(estado.abiertas, u.symbol, key),
+          velas[i].t
+        );
+        if (nace) {
+          estado.abiertas.unshift(nace);
+          nacidas++;
+        }
       }
     }
   }
@@ -219,13 +276,24 @@ async function main(): Promise<void> {
   mkdirSync(dirname(FICHERO), { recursive: true });
   writeFileSync(FICHERO, `${JSON.stringify(estado, null, 2)}\n`, "utf8");
 
+  /*
+    SE GUARDA CUANDO CAMBIA EL FICHERO, no cuando hay noticias.
+
+    Antes esto miraba solo si había nacido o cerrado algo, y se dejaba fuera un
+    caso silencioso: una vela nueva que no produce señal —el lado no cambió y
+    la anterior sigue en curso— igualmente ADELANTA el marcador de última vela
+    juzgada. Sin guardar ese marcador, la ejecución siguiente vuelve a juzgar
+    velas ya juzgadas, y si entre medias se resolvió la señal anterior nacería
+    una fechada en el pasado. Comparar el contenido entero lo cubre entero.
+  */
   const nuevasCerradas = estado.cerradas.length - antesCerradas;
-  const cambio = nacidas > 0 || nuevasCerradas > 0 || antesAbiertas !== estado.abiertas.length;
-  const resumen = cambio
+  const cambio = JSON.stringify({ ...estado, updatedAt: 0 }) !== JSON.stringify({ ...antes, updatedAt: 0 });
+  const hayNoticia = nacidas > 0 || nuevasCerradas > 0 || antesAbiertas !== estado.abiertas.length;
+  const resumen = hayNoticia
     ? `${nacidas} nuevas · ${nuevasCerradas} cerradas · ${estado.abiertas.length} vivas`
     : `latido · sin novedad (${estado.abiertas.length} vivas, ${estado.cerradas.length} cerradas)`;
 
-  console.log(resumen + (fallos ? ` · ${fallos} descargas fallidas` : ""));
+  console.log(resumen + (fallos ? ` · ${fallos} descargas fallidas` : "") + (saltadas ? ` · ${saltadas} velas atrasadas fuera de tope` : ""));
   salida("changed", String(cambio));
   salida("summary", resumen);
 }
