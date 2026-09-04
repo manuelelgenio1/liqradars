@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "creador-mercado-vela",
+    hypothesis: "Hacer mercado en velas de 5 y 30 minutos es rentable con comisión maker del 0 %",
+    verdict: "descartada",
+    sample: "4 spreads × 2 marcos · 10 pares · 4.200 sucesos por celda fuera de muestra · 16 combinaciones, todas negativas",
+    numbers:
+      "con spread de 0,10 ATR se cobra la vuelta completa el 64 % de las veces, pero el 36 % de un solo lado pierde −0,80 ATR de media · PNL por barra entre −0,033 y −0,214",
+    meaning:
+      "El modelo es el correcto —cobrar el spread en ida y vuelta, no acertar la dirección— y aun así pierde en las dieciséis celdas. La razón es estructural y explica por qué esto no es un negocio de gráficos: cuando solo te ejecutan un lado cargas con el inventario equivocado LA VELA ENTERA, mientras que un creador real recotiza cada milisegundo y se queda plano en segundos. La pérdida por selección adversa es cuatro veces mayor que el spread cobrado. Y sale así con dos sesgos a favor: la simulación ignora la cola de órdenes y no limita el inventario.",
+  },
+  {
     id: "maker-selec-adversa",
     hypothesis: "Poner el spread en vez de pagarlo rescata el corto plazo, porque la comisión maker es cero",
     verdict: "no-operable",
