@@ -66,6 +66,25 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "entradas-intrabar",
+    hypothesis: "Entrar con un disparador dentro de la vela, y no al cierre, cambia el resultado",
+    verdict: "no-operable",
+    sample: "3 disparadores · 10 pares · 45.000 velas de 1 minuto cada uno (31 días) · 1.934 a 2.433 sucesos fuera de muestra",
+    numbers:
+      "entrar en retroceso mejora el neto de −0,510R a −0,353R, un 31 % · el acierto no se mueve: 35,1 %, 35,3 % y 34,1 % según el disparador",
+    meaning:
+      "Era la limitación más real que quedaba: todo lo anterior decidía y entraba al cierre de la vela, que no es como se opera. Y sí mejora — esperar un retroceso da mejor precio y comisión maker, la mayor ganancia que ha producido ningún cambio. Pero el acierto es idéntico con los tres disparadores, así que lo que mejoró fue el PRECIO DE ENTRADA, no la puntería. De −0,51 a −0,35 hay que repetir esa mejora tres veces más para cruzar el cero, y ya no queda de dónde: el 37 % de las señales ni siquiera llega a ejecutarse.",
+  },
+  {
+    id: "ambiguedad-resolucion",
+    hypothesis: "Contar como pérdida la vela que toca stop y objetivo estaba castigando los resultados",
+    verdict: "descartada",
+    sample: "resolución a 1 minuto sobre 45.000 velas por par · 5.144 operaciones fuera de muestra",
+    numbers: "velas ambiguas al resolver a un minuto: 0,0 %",
+    meaning:
+      "Preocupación legítima sobre el propio método: con velas de cinco minutos, la que contiene ambos niveles se contaba siempre como pérdida, y eso podía estar deformando veinticuatro estudios. Resuelto a un minuto la ambigüedad desaparece por completo, así que el supuesto conservador no distorsionaba nada. Un agujero menos del que preocuparse.",
+  },
+  {
     id: "gestion-stop",
     hypothesis: "Mover el stop al punto de entrada da la vuelta al signo, porque baja el punto de equilibrio",
     verdict: "descartada",
