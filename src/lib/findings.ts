@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "acuerdo-indicadores",
+    hypothesis: "Exigiendo más acuerdo entre los cinco indicadores sube el porcentaje de aciertos",
+    verdict: "descartada",
+    sample: "5 tramos de acuerdo · 10 pares · 5.880 operaciones en 5m y 5.180 en 30m, fuera de muestra",
+    numbers:
+      "acierto plano entre 32 % y 36 % en los cinco tramos · con los cinco indicadores de acuerdo (0,65–1,01) sale 35,9 %, por debajo del 37,5 % que da el azar",
+    meaning:
+      "El umbral de 0,12 que dispara la señal estaba puesto a ojo y nunca se había comprobado. Comprobado: subirlo no sirve. Cuando los cinco indicadores gritan lo mismo se acierta igual o peor que lanzando una moneda con esos niveles. Era el sitio donde podía esconderse una solución fácil y no está.",
+  },
+  {
     id: "modelo-combinado-5m",
     hypothesis: "Combinar varias señales débiles con pesos aprendidos alcanza el factor de diez que falta en 5m",
     verdict: "descartada",
