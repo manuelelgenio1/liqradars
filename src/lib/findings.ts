@@ -68,12 +68,12 @@ export const FINDINGS: Finding[] = [
   {
     id: "vol-regimen",
     hypothesis: "Operar solo cuando hay volatilidad rescata el scalping, porque abarata la operación",
-    verdict: "no-operable",
-    sample: "4 cuartiles de volatilidad · 10 pares · 446 sucesos en el cuartil más volátil de 5m, fuera de muestra",
+    verdict: "descartada",
+    sample: "4 cuartiles · 10 pares · y confirmación preregistrada en 10 pares NUEVOS con 1.007 sucesos",
     numbers:
-      "en 5m el coste cae de 0,272R a 0,064R y el neto sube de −0,312R a −0,035R · en 30m el mejor cuartil da +0,009R con t=0,90 y el listón está en 2,50",
+      "el coste cae de 0,272R a 0,064R y el neto sube de −0,312R a −0,035R, pero nunca cruza el cero · el bruto del cuartil alto pasó de +0,045R a −0,033R en los pares nuevos",
     meaning:
-      "El mecanismo es aritmético y se cumple: el coste en R depende de lo grande que sea el ATR frente al precio, así que en los tramos volátiles la misma comisión pesa cuatro veces menos. Deja de sangrar casi del todo pero no cruza el cero, que es exactamente lo que se predijo por escrito antes de medir. Queda anotado un rastro que NO es hallazgo porque salió de trocear datos ya vistos: el bruto crece de forma monótona con la volatilidad en los dos marcos.",
+      "El mecanismo del coste es aritmético y se cumple: en los tramos volátiles la misma comisión pesa cuatro veces menos. Pero se predijo por escrito que si el bruto era cero el neto subiría hacia el cero sin cruzarlo, y eso fue lo que pasó. Apareció además un rastro tentador —el bruto crecía con la volatilidad— que se puso a prueba en diez pares nunca usados: EL SIGNO SE DIO LA VUELTA. Era ruido de trocear datos ya vistos. Y la sensibilidad remata la cuestión del coste: ni con ambas órdenes limitadas se sale del negativo, porque abaratar la ejecución no salva un bruto negativo.",
   },
   {
     id: "funding-contrario",
