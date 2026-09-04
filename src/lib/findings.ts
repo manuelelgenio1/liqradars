@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "modelo-combinado-5m",
+    hypothesis: "Combinar varias señales débiles con pesos aprendidos alcanza el factor de diez que falta en 5m",
+    verdict: "descartada",
+    sample: "11 rasgos · 10 pares · 77.636 filas de entrenamiento y 41.804 de evaluación · 2.303 sucesos independientes",
+    numbers:
+      "R² fuera de muestra 0,017 % · bruto +0,027 ATR con t=1,87 contra un listón de 1,96 · coste 0,564 ATR, veinte veces mayor",
+    meaning:
+      "El modelo APRENDE algo real: el R² fuera de muestra es positivo, así que no es sobreajuste, y el peso mayor se lo lleva el retorno rezagado con signo negativo — la regresión redescubre sola la reversión que ya habíamos medido. Pero combinar once rasgos da la misma magnitud que la señal suelta, no diez veces más. Ese era el objetivo y no se alcanzó. Con esto se agota el camino: la ventaja a cinco minutos es de 0,03 a 0,09 ATR en todo lo medido, propio y publicado, y el coste de operarla ronda 0,6. No es una carencia de modelo, es una distancia estructural.",
+  },
+  {
     id: "reversion-5m",
     hypothesis: "El retorno de la vela anterior predice el de la siguiente en 5 minutos",
     verdict: "no-operable",
