@@ -226,11 +226,11 @@ export const FINDINGS: Finding[] = [
     id: "mesa-4h-diario",
     hypothesis: "La misma mesa sí funciona en 4H y diario, donde el coste es veinte veces menor",
     verdict: "abierta",
-    sample: "12.000 velas × 10 pares en cada marco · 908 sucesos en 4H y 258 en diario, fuera de muestra",
+    sample: "24 pares · 215.372 velas desde 2019 · 5.535 sucesos en 4H y 869 en diario",
     numbers:
-      "4H +0,056R netos con t=1,44 · diario +0,053R con t=1,31 · el listón, tras probar 3 marcos × 5 anchuras, está en 2,9 sigmas",
+      "el conjunto da +0,043R con t=3,04 en 4H y +0,118R con t=3,21 en diario — pero LARGOS +0,090R (t=4,69) contra CORTOS −0,021R (t=−1,04)",
     meaning:
-      "Sigue ABIERTA y no descartada, y la diferencia es real: en 5m hay potencia para afirmar que la ventaja no existe, aquí no. El neto sale positivo en casi todas las anchuras y el bruto es consistente, pero el ruido es demasiado grande para distinguirlo de cero. Hacen falta unas tres veces más sucesos, y reutilizar estos mismos datos para volver a mirar sería justo la trampa que este expediente existe para evitar.",
+      "Con toda la historia y 24 pares el resultado SUPERA el listón, y aun así no cuenta como hallazgo: toda la ventaja está en los largos y los cortos no ganan nada. Esa es la firma de la deriva, no de la predicción — las cripto subieron entre 2019 y hoy, y los 25 pares se eligieron por su volumen ACTUAL, o sea los supervivientes. Un sistema que sigue tendencia sobre activos que tendieron al alza gana sin acertar nada. Queda abierta y no descartada porque los cortos están planos y no simétricamente negativos, lo que dejaría sitio a un componente pequeño de habilidad bajo uno grande de deriva. Separarlos exige comparar contra el rendimiento incondicional del mismo periodo, no contra cero.",
   },
   {
     id: "stop-ancho-5m",
