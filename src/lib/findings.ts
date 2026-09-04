@@ -57,6 +57,25 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 
 export const FINDINGS: Finding[] = [
   {
+    id: "mesa-5m",
+    hypothesis: "Las señales de la mesa sirven para hacer scalping en 5 minutos",
+    verdict: "descartada",
+    sample: "en vivo: 52 operaciones · 22 sucesos · replay: 2.512 operaciones · 1.371 sucesos fuera de muestra",
+    numbers: "en vivo −0,79R por señal contra −0,48R de la moneda al aire · en replay el BRUTO fuera de muestra es −0,013R",
+    meaning:
+      "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
+  },
+  {
+    id: "stop-ancho-5m",
+    hypothesis: "Ensanchar el stop en 5 minutos rescata el scalping, porque diluye la comisión",
+    verdict: "descartada",
+    sample: "5 anchuras de stop · 1,2 a 6 ATR · 12.000 velas × 10 pares · 1.309-2.430 sucesos fuera de muestra",
+    numbers:
+      "el coste cae de 1,003R a 0,205R como predice la aritmética, pero el neto solo mejora de −0,541R a −0,110R: nunca cruza el cero",
+    meaning:
+      "El mecanismo era correcto y la conclusión es la contraria a la esperada. El coste en R es inversamente proporcional a lo ancho que sea el stop, así que ensancharlo lo diluye de verdad — pero solo sirve para perder más despacio. Con un bruto de −0,013R y un error típico de 0,024R hay potencia para descartar cualquier ventaja que cubriese siquiera el coste más barato de los cinco.",
+  },
+  {
     id: "indicadores",
     hypothesis: "Los indicadores clásicos aciertan la dirección",
     verdict: "descartada",
