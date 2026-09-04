@@ -9,6 +9,7 @@ import { ROUND_TRIP_COST_PCT } from "../lib/signals";
 import { decimalsFor } from "../lib/universe";
 import * as f from "../lib/format";
 import { MIN_SAMPLE, type LedgerStats } from "../lib/deskledger";
+import { COLOR_TONO, verdictFor } from "../lib/tfverdict";
 
 /* ============================================================
    Mesa de operaciones.
@@ -99,6 +100,10 @@ function SenalViva({ s, dec }: { s: SignalState; dec: number }) {
           {largo ? "LARGO" : "CORTO"}
         </span>
         <span className="seccion">{s.signal.timeframe}</span>
+        {/* Esta tarjeta enseña entrada, stop y objetivo: es donde más se parece
+            a una recomendación, así que es donde más falta hace decir qué se
+            midió de ese marco. */}
+        <Veredicto timeframe={s.signal.timeframe} />
         <span className="ml-auto font-display text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: col }}>
           {TEXTO_ENTRADA[s.freshness]}
         </span>
@@ -174,6 +179,32 @@ function SenalViva({ s, dec }: { s: SignalState; dec: number }) {
 
 // ---------------- fila de temporalidad ----------------
 
+/*
+  La etiqueta de lo medido.
+
+  Sale del expediente, no de aquí: `tfverdict` ata cada marco a los hallazgos
+  que lo respaldan y una prueba comprueba que existan. Si mañana 4H se cierra,
+  cambia el expediente y esto cambia con él.
+
+  Por qué en rojo lo descartado y en ámbar lo que se está midiendo: son cosas
+  distintas y confundirlas es el error que este proyecto lleva corrigiendo
+  desde el principio. "No hay ventaja" está comprobado con potencia; "en
+  medición" quiere decir que todavía no se sabe.
+*/
+function Veredicto({ timeframe }: { timeframe: string }) {
+  const v = verdictFor(timeframe);
+  if (!v) return null;
+  return (
+    <span
+      title={v.detail}
+      className="shrink-0 cursor-help rounded border px-1.5 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.06em]"
+      style={{ color: COLOR_TONO[v.tone], borderColor: "currentColor", opacity: 0.8 }}
+    >
+      {v.short}
+    </span>
+  );
+}
+
 function FilaMarco({ r, dec, activa, onClick }: { r: TradeLevels; dec: number; activa: boolean; onClick: () => void }) {
   if (!r.ready) {
     return (
@@ -201,6 +232,15 @@ function FilaMarco({ r, dec, activa, onClick }: { r: TradeLevels; dec: number; a
         {textoLado(r.side)}
         {r.side && <span className="ml-1.5 font-normal opacity-50">{Math.round(r.strength * 100)}</span>}
       </span>
+
+      {/*
+        Lo que se midió de este marco, junto a los niveles que propone.
+
+        No se esconde en pantallas pequeñas aunque el stop y el objetivo sí lo
+        hagan: si algo tiene que sobrevivir al recorte es la advertencia, no
+        el número que la necesita.
+      */}
+      <Veredicto timeframe={r.timeframe} />
 
       <span className="dato-m ml-auto hidden w-20 text-right sm:inline" style={{ color: "var(--color-down)" }}>
         {f.price(r.stop, dec)}
