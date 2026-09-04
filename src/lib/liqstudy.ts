@@ -100,7 +100,7 @@ export function loadStudy(): LiqStudy {
   return { obs: obs.slice(0, MAX_OBS), lastBurst: raw.lastBurst ?? {} };
 }
 
-const save = (s: LiqStudy): void =>
+const save = (s: LiqStudy): boolean =>
   storage.write(LS_KEY, { obs: s.obs.slice(0, MAX_OBS), lastBurst: s.lastBurst });
 
 export function persist(study: LiqStudy): void {

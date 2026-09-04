@@ -10,11 +10,20 @@ export function read<T>(key: string, fallback: T): T {
   }
 }
 
-export function write<T>(key: string, value: T): void {
+/**
+ * Devuelve si se pudo guardar.
+ *
+ * Antes tragaba el fallo y no lo contaba a nadie. Para un ajuste de interfaz
+ * da igual, pero el REGISTRO DE ACIERTOS no: en modo incógnito, o con la cuota
+ * llena, dejaría de guardarse en silencio y el usuario seguiría creyendo que
+ * la mesa lleva las cuentas. Quien necesite saberlo, ahora puede.
+ */
+export function write<T>(key: string, value: T): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    /* sin almacenamiento */
+    return false;
   }
 }
 

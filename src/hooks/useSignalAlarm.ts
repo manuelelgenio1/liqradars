@@ -45,20 +45,70 @@ export interface Aviso {
   at: number;
 }
 
-interface Opciones {
-  enabled: boolean;
+export interface AlarmaApi {
+  avisos: Aviso[];
+  limpiarAvisos: () => void;
+  alarmaOn: boolean;
+  alternarAlarma: () => void;
   alcance: Alcance;
-  /** el par que se está mirando, para el alcance "par" */
-  symbol: string;
+  alternarAlcance: () => void;
 }
 
-export function useSignalAlarm(signals: SignalState[], opts: Opciones) {
+export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaApi {
+  /*
+    ESTE ESTADO VIVE EN `ChartTabs`, NO EN EL PANEL, y no es un capricho: el
+    panel se monta con `tab === "trade" && ...`, así que cambiar de pestaña lo
+    DESMONTABA. La alarma se apagaba sola, el alcance volvía a "este par" y la
+    lista de avisos se borraba — y encima no sonaba nada mientras mirabas otra
+    pestaña, que es justo cuando una alarma sirve para algo.
+  */
+  const [alarmaOn, setAlarmaOn] = useState(false);
+  const [alcance, setAlcance] = useState<Alcance>("par");
+
+  /*
+    LA ALARMA SE ENCIENDE CON UN CLIC Y NO PUEDE SER DE OTRA FORMA. Ningún
+    navegador deja sonar audio hasta que el usuario ha interactuado con la
+    página, así que este clic hace dos cosas: guardar la preferencia y darle al
+    navegador el gesto que exige. No se restaura activada al recargar: prometer
+    un aviso que el navegador va a bloquear es peor que no prometerlo.
+  */
+  const alternarAlarma = useCallback(() => {
+    setAlarmaOn((prev) => (prev ? false : alarm.unlock()));
+  }, []);
+  const alternarAlcance = useCallback(() => {
+    setAlcance((a) => (a === "par" ? "todos" : "par"));
+  }, []);
+  const optsRef = useLatest({ enabled: alarmaOn, alcance, symbol });
+
+  /*
+    SOLO SE AVISA DE LO NACIDO DESPUÉS DE ARRANCAR.
+
+    Sin esto, la lista mentía en cada carga. Las señales viven en disco pero
+    la lista derivada llega VACÍA al primer render —hacen falta los precios,
+    que son asíncronos—, así que se sembraba con nada y un segundo después las
+    cien preexistentes se detectaban como recién nacidas. Se veía a simple
+    vista: aparecían de golpe los seis marcos de un par, semanal incluido, y
+    una señal de 1W no acaba de nacer junto a las otras cinco.
+
+    Comparar contra el instante de arranque no depende de cuándo lleguen los
+    datos, que es justo lo que hacía frágil a la siembra.
+  */
+  const desde = useRef(0);
   const seen = useRef<string[] | null>(null);
   const pendientes = useRef(0);
-  const optsRef = useLatest(opts);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
   const limpiarAvisos = useCallback(() => setAvisos([]), []);
+
+  /*
+    El instante de arranque se fija en un EFECTO, no durante el render.
+    `Date.now()` en el cuerpo del componente es impuro: React puede repetir un
+    render y dar un valor distinto. Va declarado antes que el efecto de
+    detección para que ya esté puesto cuando aquel corra.
+  */
+  useEffect(() => {
+    desde.current = Date.now();
+  }, []);
 
   // ---------- limpiar el título al volver a la pestaña ----------
   useEffect(() => {
@@ -84,6 +134,7 @@ export function useSignalAlarm(signals: SignalState[], opts: Opciones) {
     const nuevas = d.nuevas
       .map((id) => signals.find((x) => x.signal.id === id))
       .filter((s): s is SignalState => !!s)
+      .filter((s) => s.signal.bornAt >= desde.current)
       .filter((s) => alcance === "todos" || s.signal.symbol === symbol);
     if (!nuevas.length) return;
 
@@ -117,5 +168,5 @@ export function useSignalAlarm(signals: SignalState[], opts: Opciones) {
     }
   }, [signals, optsRef]);
 
-  return { avisos, limpiarAvisos };
+  return { avisos, limpiarAvisos, alarmaOn, alternarAlarma, alcance, alternarAlcance };
 }

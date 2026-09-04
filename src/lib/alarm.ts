@@ -22,7 +22,14 @@
 // ============================================================
 import type { Side } from "./types";
 
-/** Cuántos ids se recuerdan. De sobra para una sesión larga. */
+/**
+ * Cuántos ids YA DESAPARECIDOS se recuerdan.
+ *
+ * El tope NO se aplica a los que siguen presentes, y esa distinción arregla un
+ * fallo real: con ~100 señales vivas y casi cien nacimientos cada diez
+ * minutos, en media hora se agotaban los 300 huecos. Las señales viejas pero
+ * VIVAS caían de la lista y volvían a avisar como si acabaran de nacer.
+ */
 export const MAX_RECORDADAS = 300;
 
 export interface Deteccion {
@@ -40,11 +47,17 @@ export interface Deteccion {
  * repintados inútiles.
  */
 export function detect(seen: string[] | null, ids: string[]): Deteccion {
-  if (seen === null) return { seen: ids.slice(0, MAX_RECORDADAS), nuevas: [] };
+  if (seen === null) return { seen: [...ids], nuevas: [] };
   const conocidos = new Set(seen);
   const nuevas = ids.filter((id) => !conocidos.has(id));
   if (!nuevas.length) return { seen, nuevas };
-  return { seen: [...nuevas, ...seen].slice(0, MAX_RECORDADAS), nuevas };
+
+  // Lo que sigue presente NUNCA se olvida; el tope solo poda lo que ya no está.
+  const presentes = new Set(ids);
+  const todos = [...nuevas, ...seen];
+  const vivos = todos.filter((id) => presentes.has(id));
+  const idos = todos.filter((id) => !presentes.has(id));
+  return { seen: [...vivos, ...idos.slice(0, MAX_RECORDADAS)], nuevas };
 }
 
 // ---------------- sonido ----------------

@@ -27,6 +27,7 @@ import type { Candle, Side } from "./types";
 import { costInR, MAX_BARS, ROUND_TRIP_COST_PCT } from "./signals";
 import type { DeskSignal } from "./desksignals";
 import * as storage from "./storage";
+import { requiredSigma } from "./indicatorScore";
 
 const LS_KEY = "liqradar:deskledger:v1";
 const MAX_ENTRIES = 500;
@@ -148,8 +149,9 @@ export function load(): LedgerEntry[] {
     : [];
 }
 
-export function save(entries: LedgerEntry[]): void {
-  storage.write(LS_KEY, entries.slice(0, MAX_ENTRIES));
+/** Devuelve si el libro llegó realmente al disco. */
+export function save(entries: LedgerEntry[]): boolean {
+  return storage.write(LS_KEY, entries.slice(0, MAX_ENTRIES));
 }
 
 /** Añade sin duplicar. Devuelve la MISMA referencia si no hay nada nuevo. */
@@ -186,6 +188,8 @@ export interface LedgerStats {
   moments: number;
   /** cuántas desviaciones típicas se aparta el neto de cero, POR SUCESO */
   tStat: number;
+  /** listón exigido a esa t; sube cuando se juzgan varias cosas a la vez */
+  requiredT: number;
   verdict: "SIN DATOS" | "MUESTRA CORTA" | "SIN VENTAJA" | "PIERDE" | "VENTAJA";
   note: string;
 }
@@ -223,7 +227,12 @@ export function momentMeans(entries: LedgerEntry[], bucketMs = MOMENT_MS): numbe
 
 const media = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
 
-export function stats(entries: LedgerEntry[]): LedgerStats {
+/**
+ * @param requiredT listón para la t. Sube por encima de 2 cuando se emiten
+ *   VARIOS veredictos sobre los mismos datos —el desglose por temporalidad son
+ *   seis— porque entonces que uno cruce por azar deja de ser improbable.
+ */
+export function stats(entries: LedgerEntry[], requiredT = 2): LedgerStats {
   const n = entries.length;
   const wins = entries.filter((e) => e.outcome === "ganada").length;
   const losses = entries.filter((e) => e.outcome === "perdida").length;
@@ -277,12 +286,12 @@ export function stats(entries: LedgerEntry[]): LedgerStats {
       expectancy > 0
         ? `Gana ${expectancy.toFixed(2)}R en bruto y pierde ${expectancyNet.toFixed(2)}R neto: se lo come la comisión (${avgCostR.toFixed(2)}R por señal).`
         : `Esperanza neta ${expectancyNet.toFixed(2)}R por señal: pierde dinero en la muestra.`;
-  } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0 && tStat > 2) {
+  } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0 && tStat > requiredT) {
     verdict = "VENTAJA";
-    note = `Esperanza neta ${expectancyNet.toFixed(2)}R contra ${controlExpectancy.toFixed(2)}R de la moneda al aire (t=${tStat.toFixed(2)}).`;
+    note = `Esperanza neta ${expectancyNet.toFixed(2)}R contra ${controlExpectancy.toFixed(2)}R de la moneda al aire (t=${tStat.toFixed(2)} sobre un listón de ${requiredT.toFixed(2)}).`;
   } else if (Number.isFinite(edge) && edge >= 0.15 && expectancyNet > 0) {
     verdict = "SIN VENTAJA";
-    note = `Va ${expectancyNet.toFixed(2)}R neto contra ${controlExpectancy.toFixed(2)}R del control, pero con t=${Number.isFinite(tStat) ? tStat.toFixed(2) : "—"} eso cabe dentro del azar. Hace falta t>2 y más muestra.`;
+    note = `Va ${expectancyNet.toFixed(2)}R neto contra ${controlExpectancy.toFixed(2)}R del control, pero con t=${Number.isFinite(tStat) ? tStat.toFixed(2) : "—"} eso cabe dentro del azar. Hace falta t>${requiredT.toFixed(2)} y más muestra.`;
   } else {
     verdict = "SIN VENTAJA";
     note = `Esperanza neta ${expectancyNet.toFixed(2)}R vs ${controlExpectancy.toFixed(2)}R del control: la diferencia no distingue estas reglas del azar.`;
@@ -303,6 +312,7 @@ export function stats(entries: LedgerEntry[]): LedgerStats {
     controlHitRate,
     moments: sucesos.length,
     tStat,
+    requiredT,
     verdict,
     note,
   };
@@ -314,8 +324,15 @@ export function statsByTimeframe(entries: LedgerEntry[]): { timeframe: string; s
   for (const e of entries) {
     grupos.set(e.timeframe, [...(grupos.get(e.timeframe) ?? []), e]);
   }
+  /*
+    SEIS MARCOS SON SEIS PRUEBAS SOBRE LOS MISMOS DATOS. Con el listón de t>2
+    en cada uno, que alguno cruce por azar deja de ser improbable: es la misma
+    trampa que este proyecto lleva evitando desde el principio, y sería
+    ridículo caer en ella justo en el panel que existe para no caer.
+  */
+  const liston = requiredSigma(grupos.size);
   return [...grupos.entries()]
-    .map(([timeframe, es]) => ({ timeframe, stats: stats(es) }))
+    .map(([timeframe, es]) => ({ timeframe, stats: stats(es, liston) }))
     .sort((a, b) => b.stats.total - a.stats.total);
 }
 

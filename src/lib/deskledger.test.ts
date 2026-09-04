@@ -265,3 +265,39 @@ describe("veinte pares no son veinte pruebas", () => {
     expect(stats(aLaVez(120, 2)).hitRate).toBe(1);
   });
 });
+
+describe("seis marcos son seis pruebas, no una", () => {
+  /*
+    El desglose por temporalidad emite un veredicto por cada marco sobre los
+    mismos datos. Con el listón de t>2 en todos, que alguno cruce por azar deja
+    de ser improbable — la misma trampa que este proyecto lleva evitando desde
+    el principio, y sería ridículo caer en ella justo en el panel que existe
+    para no caer.
+  */
+  const serie = (n: number, tf: string, r: (i: number) => number) =>
+    Array.from({ length: n }, (_, i) => ({ ...cerrada(i, r(i), -1, tf), id: `${tf}-${i}` }));
+
+  it("el listón global es 2; con seis marcos sube", () => {
+    expect(stats(serie(25, "1H", () => 1)).requiredT).toBe(2);
+    const seis = ["5m", "30m", "1H", "4H", "1D", "1W"].flatMap((tf) => serie(25, tf, () => 1));
+    for (const g of statsByTimeframe(seis)) expect(g.stats.requiredT).toBeCloseTo(2.64, 2);
+  });
+
+  it("con un solo marco no se castiga: no hay comparación múltiple", () => {
+    const uno = statsByTimeframe(serie(25, "1H", () => 1));
+    expect(uno[0].stats.requiredT).toBeCloseTo(1.96, 2);
+  });
+
+  it("una t que basta sola puede NO bastar entre seis", () => {
+    // t≈2,53: cruza el listón global de 2 y se queda corta ante el corregido
+    const ruidosa = (i: number) => (i % 5 === 0 ? -0.9 : 0.62);
+    const datos = serie(40, "1H", ruidosa);
+    const suelta = stats(datos);
+    expect(suelta.tStat).toBeGreaterThan(2);
+    expect(suelta.tStat).toBeLessThan(2.64);
+
+    // el MISMO dato: veredicto opuesto según se juzgue solo o entre seis
+    expect(suelta.verdict).toBe("VENTAJA");
+    expect(stats(datos, 2.64).verdict).toBe("SIN VENTAJA");
+  });
+});

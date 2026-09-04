@@ -70,6 +70,8 @@ export interface TradingDesk {
   ledgerStats: ledger.LedgerStats;
   ledgerByTf: { timeframe: string; stats: ledger.LedgerStats }[];
   clearLedger: () => void;
+  /** false si el navegador rechaza guardar el libro */
+  ledgerSaved: boolean;
   /** niveles del par activo, una fila por temporalidad */
   rows: TradeLevels[];
   align: Alignment;
@@ -220,6 +222,12 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   */
   const [signals, setSignals] = useState<DeskSignal[]>(() => storage.read<DeskSignal[]>(LS_SIGNALS, []));
   const [ledgerEntries, setLedger] = useState<ledger.LedgerEntry[]>(() => ledger.load());
+  /*
+    Si el disco rechaza el libro —modo incógnito, cuota llena— hay que DECIRLO.
+    Un registro que no se guarda y no avisa es peor que no tener registro:
+    crees que la mesa lleva las cuentas y no las lleva.
+  */
+  const [ledgerSaved, setLedgerSaved] = useState(true);
   const storeRef = useLatest(store);
   const rowsRef = useLatest(rows);
   const signalsRef = useLatest(signals);
@@ -257,7 +265,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
       if (cerradas.length) {
         setLedger((prev) => {
           const next = ledger.append(prev, cerradas);
-          if (next !== prev) ledger.save(next);
+          if (next !== prev && !ledger.save(next)) setLedgerSaved(false);
           return next;
         });
       }
@@ -514,6 +522,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     ledgerStats,
     ledgerByTf,
     clearLedger,
+    ledgerSaved,
     rows,
     align,
     loading,

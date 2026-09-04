@@ -1,7 +1,6 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNow } from "../hooks/useNow";
-import { useSignalAlarm, type Alcance } from "../hooks/useSignalAlarm";
-import * as alarm from "../lib/alarm";
+import type { AlarmaApi } from "../hooks/useSignalAlarm";
 import type { MarketApi } from "../hooks/useMarket";
 import { DESK_TFS, type TradingDesk } from "../hooks/useTradingDesk";
 import type { TradeLevels } from "../lib/levels";
@@ -359,41 +358,21 @@ function Registro({ desk }: { desk: TradingDesk }) {
 
 // ---------------- panel ----------------
 
-export default function TradingPanel({ api, desk }: { api: MarketApi; desk: TradingDesk }) {
+export default function TradingPanel({
+  api,
+  desk,
+  alarma,
+}: {
+  api: MarketApi;
+  desk: TradingDesk;
+  alarma: AlarmaApi;
+}) {
   const ahora = useNow(30_000);
   const dec = api.spec.decimals;
   const { align } = desk;
   const [verPorque, setVerPorque] = useState(false);
 
-  /*
-    LA ALARMA SE ENCIENDE CON UN CLIC Y NO PUEDE SER DE OTRA FORMA. Ningún
-    navegador deja sonar audio hasta que el usuario ha interactuado con la
-    página, así que este clic hace dos cosas a la vez: guardar la preferencia
-    y darle al navegador el gesto que exige. Si se activara sola al cargar, el
-    primer aviso se perdería en silencio y parecería que no funciona.
-
-    Se restaura apagada aunque estuviera activa: al recargar no hay gesto
-    todavía. Prometer un aviso que el navegador va a bloquear es peor que no
-    prometerlo.
-  */
-  const [alarmaOn, setAlarmaOn] = useState(false);
-  const [alcance, setAlcance] = useState<Alcance>("par");
-  const alternarAlarma = useCallback(() => {
-    setAlarmaOn((prev) => {
-      if (prev) return false;
-      return alarm.unlock();
-    });
-  }, []);
-  /*
-    Se le pasan las de TODOS los pares aunque el alcance sea "par": así el
-    contador de conocidas está siempre completo y cambiar a "todos" no dispara
-    de golpe las cien que ya existían.
-  */
-  const { avisos, limpiarAvisos } = useSignalAlarm(desk.liveAll, {
-    enabled: alarmaOn,
-    alcance,
-    symbol: api.spec.binance,
-  });
+  const { avisos, limpiarAvisos, alarmaOn, alternarAlarma, alcance, alternarAlcance } = alarma;
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pb-2">
@@ -448,7 +427,7 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
             </span>
           )}
           <button
-            onClick={() => setAlcance((a) => (a === "par" ? "todos" : "par"))}
+            onClick={alternarAlcance}
             title={
               alcance === "par"
                 ? "Ahora solo avisa del par que estás mirando. Pulsa para que avise de los 20."

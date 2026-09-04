@@ -52,17 +52,35 @@ describe("qué señal es nueva", () => {
     expect(detect(["a"], ["a", "b", "c"]).nuevas).toEqual(["b", "c"]);
   });
 
-  it("la memoria está acotada y conserva lo más reciente", () => {
-    const viejas = Array.from({ length: MAX_RECORDADAS }, (_, i) => `v${i}`);
-    const d = detect(viejas, ["nueva"]);
-    expect(d.seen).toHaveLength(MAX_RECORDADAS);
+  it("la memoria de las IDAS está acotada", () => {
+    // cinco por encima del tope, para que la poda tenga algo que podar
+    const viejas = Array.from({ length: MAX_RECORDADAS + 5 }, (_, i) => `v${i}`);
+    const d = detect(viejas, ["nueva"]); // ninguna de las viejas sigue presente
+    expect(d.seen).toHaveLength(MAX_RECORDADAS + 1); // la viva + el tope de idas
     expect(d.seen[0]).toBe("nueva");
-    expect(d.seen).not.toContain(`v${MAX_RECORDADAS - 1}`); // la más antigua se cae
+    expect(d.seen).toContain("v0"); // la ida más reciente se conserva
+    expect(d.seen).not.toContain(`v${MAX_RECORDADAS + 4}`); // la más antigua se cae
   });
 
-  it("sembrar con una lista enorme también respeta el tope", () => {
+  it("LA REGRESIÓN: una señal viva NUNCA se olvida, por antigua que sea", () => {
+    /*
+      Con ~100 señales vivas y casi cien nacimientos cada diez minutos, en
+      media hora se agotaban los 300 huecos. Las viejas pero VIVAS caían de la
+      lista y volvían a avisar como si acabaran de nacer.
+    */
+    let seen = detect(null, ["vieja"]).seen;
+    for (let i = 0; i < MAX_RECORDADAS * 2; i++) {
+      // "vieja" sigue presente en cada pasada, junto a una nueva cada vez
+      seen = detect(seen, ["vieja", `n${i}`]).seen;
+    }
+    expect(detect(seen, ["vieja"]).nuevas).toEqual([]);
+  });
+
+  it("sembrar guarda todas: al arrancar nada es nuevo", () => {
     const muchas = Array.from({ length: MAX_RECORDADAS + 50 }, (_, i) => `x${i}`);
-    expect(detect(null, muchas).seen).toHaveLength(MAX_RECORDADAS);
+    const d = detect(null, muchas);
+    expect(d.nuevas).toEqual([]);
+    expect(detect(d.seen, muchas).nuevas).toEqual([]);
   });
 });
 

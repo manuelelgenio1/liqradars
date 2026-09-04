@@ -4,6 +4,7 @@ import type { SignalsApi } from "../hooks/useSignals";
 import type { ConfluenceState } from "../hooks/useConfluence";
 import type { LiqStudyApi } from "../hooks/useLiqStudy";
 import { useTradingDesk } from "../hooks/useTradingDesk";
+import { useSignalAlarm } from "../hooks/useSignalAlarm";
 import PriceChart from "./PriceChart";
 import TradingViewChart from "./TradingViewChart";
 import TradingPanel from "./TradingPanel";
@@ -66,6 +67,12 @@ export default function ChartTabs({ api, sig, confluence, liq }: Props) {
   const guardada = storage.read<Tab>(LS_KEY, "trade");
   const [tab, setTab] = useState<Tab>(VALIDAS.includes(guardada) ? guardada : "trade");
   const desk = useTradingDesk(api.spec.binance, api.price);
+  /*
+    La alarma vive AQUÍ y no dentro del panel. El panel solo se monta cuando la
+    pestaña activa es "Operar", así que tenerla dentro la apagaba sola al
+    cambiar de pestaña y dejaba de avisar justo cuando no estás mirando.
+  */
+  const alarma = useSignalAlarm(desk.liveAll, api.spec.binance);
   const [tvVisitada, setTvVisitada] = useState(tab === "tv");
 
   const cambiar = (t: Tab) => {
@@ -116,7 +123,7 @@ export default function ChartTabs({ api, sig, confluence, liq }: Props) {
         {/* ---------- OPERAR ---------- */}
         {tab === "trade" && (
           <div className="flex flex-col gap-4">
-            <TradingPanel api={api} desk={desk} />
+            <TradingPanel api={api} desk={desk} alarma={alarma} />
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <SignalPanel api={api} sig={sig} />
               <JournalPanel api={api} sig={sig} />
