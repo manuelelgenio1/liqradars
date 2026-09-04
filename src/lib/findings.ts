@@ -66,6 +66,25 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "gestion-stop",
+    hypothesis: "Mover el stop al punto de entrada da la vuelta al signo, porque baja el punto de equilibrio",
+    verdict: "descartada",
+    sample: "3 reglas × 2 marcos × pares grandes y pequeños · 8.815 a 13.358 operaciones por celda fuera de muestra",
+    numbers:
+      "el empate convierte el 26 % de las perdedoras en ceros, pero el acierto cae de 36 % a 27 % a la vez · neto −0,619 sin gestión y −0,606 con ella · el arrastre empeora a −0,874",
+    meaning:
+      "Era la crítica más fuerte que se le podía hacer a los veintidós estudios anteriores, todos con stop fijo, y hacía falta medirla. Hace EXACTAMENTE lo que promete: salva una de cada cuatro perdedoras. Pero te saca de otras tantas que iban a ganar, y las dos cosas se cancelan casi al decimal. No crea ventaja, reordena resultados. El stop de arrastre es peor todavía porque corta las ganadoras antes de tiempo.",
+  },
+  {
+    id: "pares-pequenos",
+    hypothesis: "En los pares de baja capitalización queda ineficiencia que en BTC ya no existe",
+    verdict: "descartada",
+    sample: "10 perpetuos del puesto 45 al 55 por volumen · 8.587 operaciones en 5m fuera de muestra",
+    numbers: "acierto 38 % contra 36 % de los grandes, pero neto −0,838 contra −0,619: peor, no mejor",
+    meaning:
+      "La hipótesis era razonable —los mercados grandes son los más eficientes— y el resultado la cierra por partida doble. El acierto es prácticamente idéntico, así que no hay ineficiencia extra que explotar; y el coste relativo es mayor porque el spread es más ancho. Buscar mercados menos vigilados no ayuda cuando la señal vale cero en todos.",
+  },
+  {
     id: "reversion-operada",
     hypothesis: "La reversión de la vela anterior, operada con niveles propios, es rentable en 5 minutos",
     verdict: "descartada",
