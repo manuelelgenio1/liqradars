@@ -226,11 +226,11 @@ export const FINDINGS: Finding[] = [
     id: "mesa-4h-diario",
     hypothesis: "La misma mesa sí funciona en 4H y diario, donde el coste es veinte veces menor",
     verdict: "abierta",
-    sample: "24 pares · 215.372 velas desde 2019 · 5.535 sucesos en 4H y 869 en diario",
+    sample: "24 pares · 215.372 velas desde 2019 · comparación contra 209.396 largos y cortos incondicionales",
     numbers:
-      "el conjunto da +0,043R con t=3,04 en 4H y +0,118R con t=3,21 en diario — pero LARGOS +0,090R (t=4,69) contra CORTOS −0,021R (t=−1,04)",
+      "ventaja sobre el MISMO lado en momentos cualesquiera: 4H largos +0,065R (t=3,41) · 4H cortos +0,011R (t=0,57) · diario largos +0,116R (t=2,26) · diario cortos +0,027R (t=0,54) · listón 2,50",
     meaning:
-      "Con toda la historia y 24 pares el resultado SUPERA el listón, y aun así no cuenta como hallazgo: toda la ventaja está en los largos y los cortos no ganan nada. Esa es la firma de la deriva, no de la predicción — las cripto subieron entre 2019 y hoy, y los 25 pares se eligieron por su volumen ACTUAL, o sea los supervivientes. Un sistema que sigue tendencia sobre activos que tendieron al alza gana sin acertar nada. Queda abierta y no descartada porque los cortos están planos y no simétricamente negativos, lo que dejaría sitio a un componente pequeño de habilidad bajo uno grande de deriva. NO SE PUDO separar una cosa de la otra con esta medición: hacen falta comparar contra el rendimiento incondicional del mismo periodo, no contra cero.",
+      "Es lo más cerca que ha estado el proyecto de un sí, y sigue sin serlo. Comparar contra cero daba +0,043R con t=3,04, pero todo venía de los largos: deriva, porque las cripto subieron y los pares se eligieron por su volumen de HOY, o sea supervivientes. Comparando contra el mismo lado en momentos cualesquiera —misma deriva, mismos activos, mismo periodo— la ventaja sobrevive y es positiva en las CUATRO celdas. Pero solo una cruza el listón. Se preregistró que hacían falta las dos, y los cortos dan t=0,57: NO SE PUDO confirmar. Que las cuatro apunten igual es alentador y no es prueba, porque están correlacionadas. Lo que lo cerraría: datos hacia delante, o más señales cortas.",
   },
   {
     id: "stop-ancho-5m",
