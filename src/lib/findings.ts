@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "hurst-confirmacion",
+    hypothesis: "El exponente de Hurst confirma cuándo fiarse de la señal: seguirla si H>0,5, invertirla si H<0,5",
+    verdict: "descartada",
+    sample: "5 tramos de H · 10 pares · 5.876 operaciones en 5m y 5.180 en 30m, fuera de muestra",
+    numbers:
+      "la regla aplicada acierta 36,0 % en 5m y 36,3 % en 30m, por debajo del 37,5 % del azar y lejos del 44 % que hace falta",
+    meaning:
+      "Era la confirmación mejor fundamentada que ofrece la literatura: no da señal, dice cuándo la señal sirve. Y falla. Dentro de la tabla hay una trampa que merece quedar escrita: en 5m, con H bajo, la operación inversa sube a 43 % — casi el equilibrio, justo lo que predice la teoría. Pero en 30m el mismo tramo hace lo contrario. Un efecto que se da la vuelta al cambiar de marco no es un efecto. Quedándose solo con la tabla de 5m se habría anunciado un hallazgo.",
+  },
+  {
     id: "acuerdo-indicadores",
     hypothesis: "Exigiendo más acuerdo entre los cinco indicadores sube el porcentaje de aciertos",
     verdict: "descartada",

@@ -92,7 +92,17 @@ function scoreEn(b: Bundle, i: number, cfg: IndicatorConfig, tfMin: number): num
   return Number.isFinite(s) ? s : 0;
 }
 
-interface Op { fuerza: number; gana: boolean }
+/*
+  Se resuelven LAS DOS DIRECCIONES sobre la misma señal: la que dice el
+  consenso y la contraria. Motivo: medimos reversión significativa a 5 minutos
+  (t=−3,15) y la mesa sigue la tendencia, o sea que podría estar haciendo justo
+  lo contrario de lo que conviene.
+
+  OJO: el acierto de la contraria NO es 100 menos el de la directa. Los niveles
+  son asimétricos —stop a 1,2 ATR y objetivo a 2,0— así que son dos sucesos
+  distintos, no complementarios. Por eso se mide, en vez de restar.
+*/
+interface Op { fuerza: number; gana: boolean; ganaInv: boolean }
 
 function replay(velas: Candle[], b: Bundle, cfg: IndicatorConfig, tfMin: number, desde: number, hasta: number): Op[] {
   const ops: Op[] = [];
@@ -109,22 +119,28 @@ function replay(velas: Candle[], b: Bundle, cfg: IndicatorConfig, tfMin: number,
 
     const entrada = velas[i].c;
     if (!(entrada > 0)) continue;
-    const stop = lado === 1 ? entrada - atrI * STOP_ATR : entrada + atrI * STOP_ATR;
-    const obj = lado === 1 ? entrada + atrI * TARGET_ATR : entrada - atrI * TARGET_ATR;
 
-    let gana: boolean | null = null;
-    let j = i + 1;
-    for (; j < Math.min(velas.length, i + 1 + MAX_BARS); j++) {
-      const c = velas[j];
-      const tObj = lado === 1 ? c.h >= obj : c.l <= obj;
-      const tStop = lado === 1 ? c.l <= stop : c.h >= stop;
-      if (tObj && tStop) { gana = false; break; }   // ambigua = pérdida, como en la app
-      if (tObj) { gana = true; break; }
-      if (tStop) { gana = false; break; }
-    }
-    if (gana === null) { if (j >= velas.length) continue; gana = false; } // expira sin llegar
-    vivaHasta = j;
-    ops.push({ fuerza: Math.abs(sc), gana });
+    const resolver = (dir: 1 | -1): { gana: boolean; hasta: number } | null => {
+      const stop = dir === 1 ? entrada - atrI * STOP_ATR : entrada + atrI * STOP_ATR;
+      const obj = dir === 1 ? entrada + atrI * TARGET_ATR : entrada - atrI * TARGET_ATR;
+      let j2 = i + 1;
+      for (; j2 < Math.min(velas.length, i + 1 + MAX_BARS); j2++) {
+        const c = velas[j2];
+        const tObj = dir === 1 ? c.h >= obj : c.l <= obj;
+        const tStop = dir === 1 ? c.l <= stop : c.h >= stop;
+        if (tObj && tStop) return { gana: false, hasta: j2 };  // ambigua = pérdida
+        if (tObj) return { gana: true, hasta: j2 };
+        if (tStop) return { gana: false, hasta: j2 };
+      }
+      if (j2 >= velas.length) return null;                     // sin futuro suficiente
+      return { gana: false, hasta: j2 };                        // expira sin llegar
+    };
+
+    const dir = resolver(lado);
+    const inv = resolver(lado === 1 ? -1 : 1);
+    if (!dir || !inv) continue;
+    vivaHasta = dir.hasta;
+    ops.push({ fuerza: Math.abs(sc), gana: dir.gana, ganaInv: inv.gana });
   }
   return ops;
 }
@@ -158,17 +174,18 @@ async function main() {
       for (const d of datos) ops.push(...replay(d.velas, d.b, cfg, tfMin, a, z));
       if (ops.length < 200) { console.log(`  ${etq}: muestra insuficiente\n`); continue; }
       console.log(`\n  ${etq} · ${ops.length} operaciones`);
-      console.log("  acuerdo        ops   aciertos   vs azar   vs equilibrio");
-      console.log("  " + "─".repeat(56));
+      console.log("  acuerdo        ops   consenso   INVERSA   vs equilibrio (44,0 %)");
+      console.log("  " + "─".repeat(64));
       for (const [lo, hi] of TRAMOS) {
         const t = ops.filter((o) => o.fuerza >= lo && o.fuerza < hi);
         if (t.length < 30) { console.log(`  ${lo.toFixed(2)}–${hi.toFixed(2)}   ${String(t.length).padStart(6)}   (pocas)`); continue; }
         const pct = (100 * t.filter((o) => o.gana).length) / t.length;
-        const vsAzar = pct - AZAR;
-        const vsEq = pct - EQUILIBRIO;
+        const pctInv = (100 * t.filter((o) => o.ganaInv).length) / t.length;
+        const mejor = Math.max(pct, pctInv);
+        const vsEq = mejor - EQUILIBRIO;
         console.log(
-          `  ${lo.toFixed(2)}–${hi.toFixed(2)}   ${String(t.length).padStart(6)}   ${pct.toFixed(1).padStart(6)} %   ` +
-          `${(vsAzar >= 0 ? "+" : "") + vsAzar.toFixed(1).padStart(5)}    ${(vsEq >= 0 ? "+" : "") + vsEq.toFixed(1).padStart(5)}${vsEq > 0 ? "  ← RENTABLE" : ""}`
+          `  ${lo.toFixed(2)}–${hi.toFixed(2)}   ${String(t.length).padStart(6)}   ${pct.toFixed(1).padStart(6)} %  ${pctInv.toFixed(1).padStart(6)} %   ` +
+          `${(vsEq >= 0 ? "+" : "") + vsEq.toFixed(1).padStart(5)}${vsEq > 0 ? "  ← RENTABLE" : ""}`
         );
       }
     }
