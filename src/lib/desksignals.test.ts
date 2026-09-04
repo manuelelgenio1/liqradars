@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { Candle } from "./types";
 import {
+  candlesFor,
+  type CandleStore,
+  EMPTY_STORE,
   ENFRIANDO_MAX_R,
   evaluateSignal,
   FRESCA_MAX_R,
@@ -184,5 +188,34 @@ describe("limpieza", () => {
   it("conserva las vivas aunque vayan en contra", () => {
     // Ir perdiendo no es caducar: mientras no toque el stop, sigue viva.
     expect(prune([larga()], "BTCUSDT", 98.5, T)).toHaveLength(1);
+  });
+});
+
+describe("las velas saben de qué par son", () => {
+  /*
+    La regresión que esto vigila se observó en vivo: al pasar de SOL a BTC
+    nacieron seis señales etiquetadas BTCUSDT con el precio de SOL y el ATR de
+    BTC, una de ellas con el stop en −7384. Un precio negativo. `symbol`
+    cambia en el acto y las velas tardan unos segundos; durante esa ventana la
+    mesa mezclaba nombre nuevo con datos viejos.
+  */
+  const vela = (c: number): Candle => ({ t: T, o: c, h: c, l: c, c, v: 1, delta: 0 });
+  const store: CandleStore = { symbol: "SOLUSDT", byTf: { "1H": [vela(103)] } };
+
+  it("sirve las velas cuando el par coincide", () => {
+    expect(candlesFor(store, "SOLUSDT", "1H")).toHaveLength(1);
+  });
+
+  it("NO sirve las de otro par: es lo que fabricaba stops negativos", () => {
+    expect(candlesFor(store, "BTCUSDT", "1H")).toEqual([]);
+  });
+
+  it("un marco que no está cargado devuelve vacío, no undefined", () => {
+    // Quien llama hace `candles.length`: un undefined aquí tumbaría la mesa.
+    expect(candlesFor(store, "SOLUSDT", "4H")).toEqual([]);
+  });
+
+  it("el almacén vacío no sirve nada a nadie", () => {
+    expect(candlesFor(EMPTY_STORE, "BTCUSDT", "1H")).toEqual([]);
   });
 });

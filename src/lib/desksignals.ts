@@ -28,7 +28,7 @@
 //   · si el precio ya tocó el stop o el objetivo: la operación ocurrió, con o
 //     sin ti
 // ============================================================
-import type { Side } from "./types";
+import type { Candle, Side } from "./types";
 import { costInR } from "./signals";
 
 /** Velas que vive una señal antes de caducar. El mismo número que en la bitácora. */
@@ -189,4 +189,35 @@ export function prune(sigs: DeskSignal[], symbol: string, price: number, now: nu
     if (s.symbol !== symbol) return false;
     return evaluateSignal(s, price, now).expiredReason === null;
   });
+}
+
+// ============================================================
+// LAS VELAS SABEN DE QUÉ PAR SON.
+//
+// Al cambiar de par, `symbol` cambia en el acto pero las velas del nuevo
+// tardan unos segundos en llegar. Durante esa ventana la mesa tenía el nombre
+// nuevo y los datos viejos, y fabricaba señales con las dos cosas mezcladas.
+//
+// Observado en vivo pasando de SOL a BTC: seis señales etiquetadas BTCUSDT
+// nacidas con el precio de SOL (103) y el ATR de BTC, con un stop en −7384.
+// Un precio negativo. Sonaba la alarma, se guardaban en disco y podían acabar
+// en el registro de aciertos — el registro que existe precisamente para poder
+// fiarse de él.
+//
+// La cura es que las velas viajen etiquetadas y se nieguen a servir a otro
+// par. Sin velas, `computeLevels` devuelve `ready: false` y no nace nada.
+// ============================================================
+
+export interface CandleStore {
+  /** par al que pertenecen estas velas */
+  symbol: string;
+  byTf: Record<string, Candle[]>;
+}
+
+export const EMPTY_STORE: CandleStore = { symbol: "", byTf: {} };
+
+/** Velas de un marco, SOLO si son del par que se está mirando. */
+export function candlesFor(store: CandleStore, symbol: string, timeframe: string): Candle[] {
+  if (!store || store.symbol !== symbol) return [];
+  return store.byTf[timeframe] ?? [];
 }

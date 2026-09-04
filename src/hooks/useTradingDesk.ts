@@ -7,6 +7,9 @@ import { fetchUniverse, type UniverseEntry } from "../lib/universe";
 import { TIMEFRAMES, type Candle } from "../lib/types";
 import { STOP_ATR, TARGET_ATR } from "../lib/levels";
 import {
+  candlesFor,
+  type CandleStore,
+  EMPTY_STORE,
   evaluateSignal,
   maybeBirth,
   prune,
@@ -93,7 +96,15 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   // Las velas se recargan al cambiar de par o cada dos minutos. El precio en
   // vivo se aplica encima sin volver a descargar: por eso no está en las
   // dependencias de este efecto.
-  const [candlesByTf, setCandlesByTf] = useState<Record<string, Candle[]>>({});
+  /*
+    LAS VELAS VIAJAN ETIQUETADAS CON SU PAR. `symbol` cambia en el acto al
+    pulsar otro par, pero descargar las velas nuevas tarda unos segundos.
+    Cuando esto era un simple mapa por temporalidad, durante esa ventana la
+    mesa tenía el nombre nuevo y los datos viejos, y nacían señales con las dos
+    cosas mezcladas: observado en vivo pasando de SOL a BTC, seis señales
+    BTCUSDT con el precio de SOL y el ATR de BTC, una con el stop en −7384.
+  */
+  const [store, setStore] = useState<CandleStore>(EMPTY_STORE);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,7 +129,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         if (r.status === "fulfilled") mapa[r.value[0]] = r.value[1];
         else fallos.push(DESK_TFS[i]);
       });
-      setCandlesByTf(mapa);
+      setStore({ symbol, byTf: mapa });
       setFailed(fallos);
       setLoading(false);
     };
@@ -146,9 +157,12 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     () =>
       DESK_TFS.map((key) => {
         const tf = TIMEFRAMES.find((t) => t.key === key)!;
-        return computeLevels(key, tf.label, candlesByTf[key] ?? [], tf.minutes, livePrice);
+        // `candlesFor` devuelve [] si las velas son de otro par, y sin velas
+        // `computeLevels` marca la fila como no lista. Nada nace de datos
+        // prestados.
+        return computeLevels(key, tf.label, candlesFor(store, symbol, key), tf.minutes, livePrice);
       }),
-    [candlesByTf, livePrice]
+    [store, symbol, livePrice]
   );
 
   const align = useMemo(() => alignment(rows), [rows]);
@@ -164,7 +178,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
   */
   const [signals, setSignals] = useState<DeskSignal[]>(() => storage.read<DeskSignal[]>(LS_SIGNALS, []));
   const [ledgerEntries, setLedger] = useState<ledger.LedgerEntry[]>(() => ledger.load());
-  const candlesRef = useLatest(candlesByTf);
+  const storeRef = useLatest(store);
   const rowsRef = useLatest(rows);
   const signalsRef = useLatest(signals);
   const symbolRef = useLatest(symbol);
@@ -183,12 +197,20 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         rendiria cuentas de ellas — que es justo lo que hace el resto del
         sector.
       */
+      /*
+        Si las velas cargadas son de otro par, este ciclo no hace NADA: ni
+        cierra ni engendra. Con datos prestados sólo se pueden fabricar
+        señales falsas y apuntes falsos en el registro.
+      */
+      const velasDe = storeRef.current;
+      if (velasDe.symbol !== sym) return;
+
       const previas = signalsRef.current;
       const cerradas: ledger.LedgerEntry[] = [];
       for (const s of previas) {
         if (s.symbol !== sym) continue;
-        const velas = candlesRef.current[s.timeframe];
-        if (!velas?.length) continue;
+        const velas = candlesFor(velasDe, sym, s.timeframe);
+        if (!velas.length) continue;
         const e = ledger.resolve(s, velas);
         if (e) cerradas.push(e);
       }
@@ -241,7 +263,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     return () => window.clearInterval(id);
     // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
     // siempre el mismo, así que incluirlos NO relanza el efecto.
-  }, [candlesRef, priceRef, rowsRef, signalsRef, symbolRef]);
+  }, [storeRef, priceRef, rowsRef, signalsRef, symbolRef]);
 
   const ledgerStats = useMemo(() => ledger.stats(ledgerEntries), [ledgerEntries]);
   const ledgerByTf = useMemo(() => ledger.statsByTimeframe(ledgerEntries), [ledgerEntries]);
