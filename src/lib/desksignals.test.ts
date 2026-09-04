@@ -8,8 +8,10 @@ import {
   evaluateSignal,
   FRESCA_MAX_R,
   MAX_BARS,
+  dropUnresolvable,
+  latestFor,
   maybeBirth,
-  pruneAll,
+  RESOLVE_GRACE,
   type DeskSignal,
 } from "./desksignals";
 
@@ -174,46 +176,78 @@ describe("nacimiento: solo cuando el lado CAMBIA", () => {
   });
 });
 
-describe("limpieza de TODOS los pares a la vez", () => {
+describe("nada se tira antes de poder anotarlo", () => {
   /*
-    Esto sustituye a una poda que borraba las señales de cualquier par que no
-    fuera el que estabas mirando. Ese era el fallo: si seguías BTC, te ibas a
-    ETH y las de BTC alcanzaban su stop mientras estabas fuera, desaparecían
-    sin quedar anotadas en el registro.
+    El agujero por el que se escapaba casi todo el registro. Medido en
+    producción: 100 señales vivas, 94 nacidas en los últimos diez minutos,
+    mediana de tres — y TRES apuntes en el libro.
+
+    La causa era mezclar dos preguntas:
+      ¿sigue siendo entrable?  con el precio EN VIVO, al instante
+      ¿cómo acabó?             con VELAS, que llegan cada dos o tres minutos
+    La poda usaba la primera para tirar la señal, así que la borraba mucho
+    antes de que las velas pudieran certificar el desenlace.
   */
-  const viejaDe = (sym: string, id: string) =>
-    larga({ id, symbol: sym, bornAt: T - MAX_BARS * 60 * 60_000 - 1 });
+  const vidaMs = (tfMin: number) => tfMin * MAX_BARS * 60_000;
 
-  it("descarta las caducadas por tiempo, sea cual sea el par", () => {
-    const vivas = pruneAll([larga(), viejaDe("ETHUSDT", "s2")], { BTCUSDT: 100, ETHUSDT: 100 }, T);
-    expect(vivas.map((s) => s.id)).toEqual(["s1"]);
+  it("LA REGRESIÓN: una señal que YA tocó su objetivo se conserva", () => {
+    // Deja de enseñarse —eso lo decide evaluateSignal— pero sigue en la lista
+    // hasta que las velas la cierren.
+    const tocada = larga();
+    expect(evaluateSignal(tocada, 104.1, T).expiredReason).toBe("objetivo");
+    expect(dropUnresolvable([tocada], T)).toHaveLength(1);
   });
 
-  it("CONSERVA las de otros pares: antes se perdían sin registrar", () => {
-    const otras = [larga(), larga({ id: "s3", symbol: "ETHUSDT" })];
-    expect(pruneAll(otras, { BTCUSDT: 100, ETHUSDT: 100 }, T).map((s) => s.id)).toEqual(["s1", "s3"]);
+  it("también se conserva la que tocó el stop", () => {
+    const tocada = larga();
+    expect(evaluateSignal(tocada, 97.9, T).expiredReason).toBe("stop");
+    expect(dropUnresolvable([tocada], T)).toHaveLength(1);
   });
 
-  it("cada señal se juzga con el precio de SU par, no con uno cualquiera", () => {
-    // 97,9 tumbaría a la de BTC (stop 98) pero no debe tocar a la de ETH.
+  it("se conserva incluso pasada su vida: las velas aún pueden cerrarla", () => {
+    // A las 48 velas el libro la cierra como expirada, y para eso tiene que
+    // seguir estando.
+    expect(dropUnresolvable([larga()], T + vidaMs(60) + 1)).toHaveLength(1);
+  });
+
+  it("se descarta cuando ya no queda esperanza de resolverla", () => {
+    const muyPasada = T + vidaMs(60) * RESOLVE_GRACE + 1;
+    expect(dropUnresolvable([larga()], muyPasada)).toEqual([]);
+  });
+
+  it("la holgura se mide en la vida de SU marco, no en horas de reloj", () => {
+    const cinco = larga({ timeframe: "5m", tfMinutes: 5 });
+    const t = T + vidaMs(5) * RESOLVE_GRACE + 1;
+    expect(dropUnresolvable([cinco], t)).toEqual([]);
+    expect(dropUnresolvable([larga()], t)).toHaveLength(1); // la de 1H aguanta
+  });
+
+  it("conserva las de otros pares: antes se perdían sin registrar", () => {
     const dos = [larga(), larga({ id: "s3", symbol: "ETHUSDT" })];
-    const vivas = pruneAll(dos, { BTCUSDT: 97.9, ETHUSDT: 100 }, T);
-    expect(vivas.map((s) => s.id)).toEqual(["s3"]);
+    expect(dropUnresolvable(dos, T).map((s) => s.id)).toEqual(["s1", "s3"]);
   });
+});
 
-  it("sin precio de un par solo se le aplica la caducidad por TIEMPO", () => {
+describe("cuál es la señal vigente", () => {
+  it("la más reciente del par y marco, no la primera de la lista", () => {
     /*
-      Un par que se cae del universo deja de tener precio. No se puede saber si
-      tocó su stop, pero sí que se le acabó el tiempo. Descartarla por no tener
-      precio sería volver a perder señales sin anotarlas.
+      Ahora puede haber varias del mismo par y marco: la actual y alguna
+      esperando a que las velas la cierren. Coger la primera haría nacer una
+      nueva en cada ciclo, para siempre.
     */
-    const sinPrecio = [larga({ id: "viva" }), viejaDe("BTCUSDT", "caduca")];
-    expect(pruneAll(sinPrecio, {}, T).map((s) => s.id)).toEqual(["viva"]);
+    const vieja = larga({ id: "vieja", bornAt: T });
+    const nueva = larga({ id: "nueva", bornAt: T + 60_000 });
+    expect(latestFor([vieja, nueva], "BTCUSDT", "1H")?.id).toBe("nueva");
+    expect(latestFor([nueva, vieja], "BTCUSDT", "1H")?.id).toBe("nueva");
   });
 
-  it("conserva las vivas aunque vayan en contra", () => {
-    // Ir perdiendo no es caducar: mientras no toque el stop, sigue viva.
-    expect(pruneAll([larga()], { BTCUSDT: 98.5 }, T)).toHaveLength(1);
+  it("no confunde pares ni marcos", () => {
+    const otras = [larga({ id: "eth", symbol: "ETHUSDT" }), larga({ id: "d", timeframe: "1D" })];
+    expect(latestFor(otras, "BTCUSDT", "1H")).toBeUndefined();
+  });
+
+  it("sin ninguna devuelve undefined, que es lo que hace nacer la primera", () => {
+    expect(latestFor([], "BTCUSDT", "1H")).toBeUndefined();
   });
 });
 
@@ -247,5 +281,53 @@ describe("las velas saben de qué par son", () => {
 
   it("el almacén vacío no sirve nada a nadie", () => {
     expect(candlesFor(EMPTY_STORE, "BTCUSDT", "1H")).toEqual([]);
+  });
+});
+
+describe("una operación terminada libera el hueco", () => {
+  /*
+    Antes "sigue viva" se decidía SOLO con el reloj: 48 velas desde que nació.
+    Así que una señal que ya había alcanzado su objetivo seguía ocupando el
+    hueco de su par y marco durante dos días en 1H, o cuarenta y ocho en
+    diario, sin que naciera la siguiente. La operación había terminado y la
+    mesa la trataba como si siguiera abierta.
+  */
+  const inp = (side: "long" | "short", price: number) => ({
+    symbol: "BTCUSDT", timeframe: "1H", tfMinutes: 60, side,
+    price, atr: 1.667, strength: 0.7, stopAtr: 1.2, targetAtr: 2.0,
+  });
+
+  it("tras alcanzar el OBJETIVO nace otra, aunque el lado no cambie", () => {
+    // larga desde 100 con objetivo en 104: a 104,5 la operación acabó
+    const nueva = maybeBirth(inp("long", 104.5), larga(), T + 60_000);
+    expect(nueva).not.toBeNull();
+    expect(nueva!.side).toBe("long");
+    expect(nueva!.entry).toBe(104.5); // niveles recalculados desde el precio de ahora
+  });
+
+  it("tras saltar el STOP también, y sin esperar 48 velas", () => {
+    expect(maybeBirth(inp("long", 97.5), larga(), T + 60_000)).not.toBeNull();
+  });
+
+  it("pero mientras la operación sigue EN CURSO no hay relevo", () => {
+    // 102 está entre el stop (98) y el objetivo (104): no ha pasado nada
+    expect(maybeBirth(inp("long", 102), larga(), T + 60_000)).toBeNull();
+  });
+
+  it("ir en contra sin tocar el stop tampoco releva", () => {
+    expect(maybeBirth(inp("long", 98.5), larga(), T + 60_000)).toBeNull();
+  });
+
+  it("la caducidad por tiempo sigue funcionando", () => {
+    const t = T + MAX_BARS * 60 * 60_000 + 1;
+    expect(maybeBirth(inp("long", 100), larga(), t)).not.toBeNull();
+  });
+
+  it("la nueva no hereda nada de la vieja: id y nacimiento propios", () => {
+    // Si compartieran id, el libro creería que ya la anotó y perdería una.
+    const vieja = larga();
+    const nueva = maybeBirth(inp("long", 104.5), vieja, T + 60_000)!;
+    expect(nueva.id).not.toBe(vieja.id);
+    expect(nueva.bornAt).toBe(T + 60_000);
   });
 });

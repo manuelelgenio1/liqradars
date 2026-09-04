@@ -11,8 +11,9 @@ import {
   type CandleStore,
   EMPTY_STORE,
   evaluateSignal,
+  dropUnresolvable,
+  latestFor,
   maybeBirth,
-  pruneAll,
   type DeskSignal,
   type SignalState,
 } from "../lib/desksignals";
@@ -54,8 +55,12 @@ const LS_SIGNALS = "liqradar:desksignals:v1";
 export interface TradingDesk {
   /** señales vivas del par ACTIVO, con su edad y frescura */
   signals: SignalState[];
-  /** cuántas señales vigila la mesa en total, de todos los pares */
+  /** señales vivas de TODOS los pares, para la alarma */
+  liveAll: SignalState[];
+  /** cuántas de esas dan entrada ahora mismo */
   liveTotal: number;
+  /** ya tocaron stop u objetivo y esperan a que las velas las cierren */
+  awaitingTotal: number;
   /** cuántos pares tienen velas cargadas ahora mismo */
   tracked: number;
   sweeping: boolean;
@@ -233,23 +238,6 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
       const previas = signalsRef.current;
 
       /*
-        UN PRECIO POR PAR. El activo lo tiene en vivo; los demás salen del
-        ranking por volumen y, si un par no está ahí, del cierre de su última
-        vela. Sin esto no se podría juzgar si una señal de otro par tocó su
-        stop, que es justo lo que antes se resolvía borrándola.
-      */
-      const precios: Record<string, number> = {};
-      for (const u of universeRef.current) {
-        if (u.lastPrice > 0) precios[u.symbol] = u.lastPrice;
-      }
-      for (const otro of Object.keys(st)) {
-        if (precios[otro] > 0) continue;
-        const cierre = candlesFor(st, otro, DESK_TFS[0]).at(-1)?.c;
-        if (cierre && cierre > 0) precios[otro] = cierre;
-      }
-      if (priceRef.current > 0) precios[sym] = priceRef.current;
-
-      /*
         1. CERRAR CONTRA VELAS REALES, DE TODOS LOS PARES.
 
         Antes este bucle saltaba las señales de otros pares y la poda las
@@ -274,9 +262,22 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         });
       }
 
-      // 2. retirar las caducadas, cada una con el precio de SU par
-      let vivas = pruneAll(previas, precios, now).filter(
-        (s) => !cerradas.some((e) => e.id === s.id)
+      /*
+        2. RETIRAR SOLO LO YA CERRADO Y LO IRRECUPERABLE.
+
+        Antes aquí se tiraba todo lo caducado usando el precio en vivo, y ese
+        era el agujero: una señal deja de ser entrable en el instante en que
+        toca su stop, pero las velas que certifican el desenlace tardan dos o
+        tres minutos en llegar. La poda corría cada cinco segundos, así que
+        borraba la señal mucho antes de poder anotarla.
+
+        Ahora lo caducado deja de ENSEÑARSE —de eso se encarga
+        `evaluateSignal`— pero sigue en la lista esperando a que las velas lo
+        cierren.
+      */
+      let vivas = dropUnresolvable(
+        previas.filter((s) => !cerradas.some((e) => e.id === s.id)),
+        now
       );
       let cambio = vivas.length !== previas.length;
 
@@ -286,7 +287,9 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
         const filas = simbolo === sym ? rowsRef.current : filasDelPar;
         for (const r of filas) {
           if (!r.ready) continue;
-          const previa = vivas.find((s) => s.symbol === simbolo && s.timeframe === r.timeframe);
+          // la VIGENTE, no la primera que aparezca: puede haber alguna del
+          // mismo par y marco todavía esperando a que las velas la cierren
+          const previa = latestFor(vivas, simbolo, r.timeframe);
           const nueva = maybeBirth(
             {
               symbol: simbolo,
@@ -303,10 +306,9 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
             now
           );
           if (nueva) {
-            vivas = [
-              nueva,
-              ...vivas.filter((s) => !(s.symbol === simbolo && s.timeframe === r.timeframe)),
-            ];
+            // La anterior NO se borra: si aún no está cerrada, se queda hasta
+            // que las velas la resuelvan. Borrarla era perder el apunte.
+            vivas = [nueva, ...vivas];
             cambio = true;
           }
         }
@@ -323,7 +325,7 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     return () => window.clearInterval(id);
     // Los `*Ref` vienen de `useLatest`, que devuelve un `useRef`: el OBJETO es
     // siempre el mismo, así que incluirlos NO relanza el efecto.
-  }, [allRowsRef, storeRef, priceRef, rowsRef, signalsRef, symbolRef, universeRef]);
+  }, [allRowsRef, storeRef, priceRef, rowsRef, signalsRef, symbolRef]);
 
   const ledgerStats = useMemo(() => ledger.stats(ledgerEntries), [ledgerEntries]);
   const ledgerByTf = useMemo(() => ledger.statsByTimeframe(ledgerEntries), [ledgerEntries]);
@@ -338,14 +340,39 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
     tarjetas en pantalla no es informar, es esconder. Las de los demás siguen
     vivas, caducan y se anotan en el registro sin pedir sitio.
   */
+  /*
+    "Vivas" son las que TODAVÍA DAN ENTRADA. Las que ya tocaron su stop u
+    objetivo siguen en la lista esperando a que las velas las cierren, pero
+    llamarlas vivas sería mentir sobre lo que la mesa te ofrece.
+  */
+  const precios = useMemo(() => {
+    const p: Record<string, number> = {};
+    for (const u of universe) if (u.lastPrice > 0) p[u.symbol] = u.lastPrice;
+    if (livePrice > 0) p[symbol] = livePrice;
+    return p;
+  }, [universe, symbol, livePrice]);
+
+  const allStates = useMemo(() => {
+    const out: SignalState[] = [];
+    for (const s of signals) {
+      const p = precios[s.symbol];
+      if (!(p > 0)) continue; // sin precio no se puede afirmar ni una cosa ni otra
+      out.push(evaluateSignal(s, p, now));
+    }
+    return out;
+  }, [signals, precios, now]);
+
+  /** de todos los pares, las que TODAVÍA dan entrada */
+  const liveAll = useMemo(() => allStates.filter((s) => s.expiredReason === null), [allStates]);
+  const liveTotal = liveAll.length;
+  const awaitingTotal = allStates.length - liveTotal;
+
   const signalStates = useMemo(
     () =>
-      signals
-        .filter((s) => s.symbol === symbol)
-        .map((s) => evaluateSignal(s, livePrice, now))
-        .filter((s) => s.expiredReason === null)
+      liveAll
+        .filter((s) => s.signal.symbol === symbol)
         .sort((a, b) => a.signal.tfMinutes - b.signal.tfMinutes),
-    [signals, symbol, livePrice, now]
+    [liveAll, symbol]
   );
 
   // ---------- universo ----------
@@ -477,7 +504,9 @@ export function useTradingDesk(symbol: string, livePrice: number): TradingDesk {
 
   return {
     signals: signalStates,
-    liveTotal: signals.length,
+    liveAll,
+    liveTotal,
+    awaitingTotal,
     tracked: Object.keys(store).length,
     sweeping,
     sweptAt,

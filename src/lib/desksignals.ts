@@ -159,10 +159,23 @@ export function maybeBirth(
   rand: () => number = Math.random
 ): DeskSignal | null {
   if (!inp.side || !(inp.price > 0) || !(inp.atr > 0)) return null;
-  // mismo lado y todavía viva: no hay relevo
+  /*
+    Mismo lado y todavía en curso: no hay relevo.
+
+    "EN CURSO" NO ES SOLO CUESTIÓN DE RELOJ, y darlo por hecho era un fallo.
+    Antes esto solo miraba si habían pasado 48 velas, así que una señal que ya
+    había alcanzado su objetivo seguía ocupando el hueco de su par y marco
+    hasta agotar ese plazo: dos días en 1H, cuarenta y ocho en diario. La
+    operación había terminado y la mesa la trataba como si siguiera abierta,
+    sin ofrecer la siguiente.
+
+    Una señal cuyo precio ya tocó el stop o el objetivo es una operación
+    TERMINADA, no la misma envejeciendo. Si el consenso sigue diciendo lo
+    mismo, lo que toca es una entrada NUEVA, con sus niveles recalculados
+    desde el precio de ahora.
+  */
   if (anterior && anterior.side === inp.side) {
-    const vive = now < anterior.bornAt + MAX_BARS * anterior.tfMinutes * 60_000;
-    if (vive) return null;
+    if (evaluateSignal(anterior, inp.price, now).expiredReason === null) return null;
   }
 
   const stopDist = inp.atr * inp.stopAtr;
@@ -216,22 +229,53 @@ export function candlesFor(store: CandleStore, symbol: string, timeframe: string
 }
 
 /**
- * Retira las caducadas de TODOS los pares, cada una juzgada con el precio del
- * suyo.
- *
- * Sin precio de un par no se puede saber si tocó su stop, pero sí si se le
- * acabó el tiempo — y eso se comprueba pasándole su propia entrada como
- * precio: ahí no toca ni stop ni objetivo, así que solo puede caducar por
- * tiempo. Se reutiliza la misma lógica ya probada en vez de duplicarla.
+ * Cuántas vidas se espera a que las velas alcancen a una señal antes de darla
+ * por irrecuperable. Generoso a propósito: perder un apunte es peor que
+ * guardar de más.
  */
-export function pruneAll(
+export const RESOLVE_GRACE = 3;
+
+/**
+ * Retira SOLO lo que ya no se podrá cerrar nunca contra velas.
+ *
+ * ESTO ERA UN AGUJERO POR EL QUE SE ESCAPABA CASI TODO EL REGISTRO, y no una
+ * sutileza: medido en producción, 100 señales vivas, 94 nacidas en los últimos
+ * diez minutos, mediana de tres — y TRES apuntes en el libro.
+ *
+ * La causa era mezclar dos preguntas distintas:
+ *
+ *   ¿SIGUE SIENDO ENTRABLE?  se responde con el precio EN VIVO, al instante.
+ *   ¿CÓMO ACABÓ?             se responde con VELAS, que llegan cada 2-3 min.
+ *
+ * La poda corría cada cinco segundos y usaba la primera para tirar la señal,
+ * así que la borraba mucho antes de que las velas pudieran certificar el
+ * desenlace. La mesa emitía señales, las hacía desaparecer y no rendía cuentas
+ * de casi ninguna.
+ *
+ * Ahora una señal que toca su stop u objetivo DEJA DE ENSEÑARSE —eso lo decide
+ * `evaluateSignal`— pero SIGUE EN LA LISTA hasta que las velas la cierren. Solo
+ * se descarta cuando ya no queda esperanza de resolverla.
+ */
+export function dropUnresolvable(sigs: DeskSignal[], now: number): DeskSignal[] {
+  return sigs.filter((s) => now - s.bornAt <= s.tfMinutes * MAX_BARS * 60_000 * RESOLVE_GRACE);
+}
+
+/**
+ * La señal VIGENTE de un par y un marco: la más reciente.
+ *
+ * Hace falta porque ahora puede haber varias del mismo par y marco a la vez —
+ * la actual y alguna esperando a que las velas la cierren. Coger la primera
+ * que aparezca haría nacer una nueva en cada ciclo.
+ */
+export function latestFor(
   sigs: DeskSignal[],
-  precios: Record<string, number>,
-  now: number
-): DeskSignal[] {
-  return sigs.filter((s) => {
-    const p = precios[s.symbol];
-    const ref = p > 0 ? p : s.entry;
-    return evaluateSignal(s, ref, now).expiredReason === null;
-  });
+  symbol: string,
+  timeframe: string
+): DeskSignal | undefined {
+  let mejor: DeskSignal | undefined;
+  for (const s of sigs) {
+    if (s.symbol !== symbol || s.timeframe !== timeframe) continue;
+    if (!mejor || s.bornAt > mejor.bornAt) mejor = s;
+  }
+  return mejor;
 }

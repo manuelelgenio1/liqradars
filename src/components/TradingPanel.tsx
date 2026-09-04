@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useNow } from "../hooks/useNow";
-import { useSignalAlarm } from "../hooks/useSignalAlarm";
+import { useSignalAlarm, type Alcance } from "../hooks/useSignalAlarm";
 import * as alarm from "../lib/alarm";
 import type { MarketApi } from "../hooks/useMarket";
 import { DESK_TFS, type TradingDesk } from "../hooks/useTradingDesk";
@@ -377,13 +377,23 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
     prometerlo.
   */
   const [alarmaOn, setAlarmaOn] = useState(false);
+  const [alcance, setAlcance] = useState<Alcance>("par");
   const alternarAlarma = useCallback(() => {
     setAlarmaOn((prev) => {
       if (prev) return false;
       return alarm.unlock();
     });
   }, []);
-  useSignalAlarm(desk.signals, alarmaOn);
+  /*
+    Se le pasan las de TODOS los pares aunque el alcance sea "par": así el
+    contador de conocidas está siempre completo y cambiar a "todos" no dispara
+    de golpe las cien que ya existían.
+  */
+  const { avisos, limpiarAvisos } = useSignalAlarm(desk.liveAll, {
+    enabled: alarmaOn,
+    alcance,
+    symbol: api.spec.binance,
+  });
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pb-2">
@@ -438,13 +448,24 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
             </span>
           )}
           <button
+            onClick={() => setAlcance((a) => (a === "par" ? "todos" : "par"))}
+            title={
+              alcance === "par"
+                ? "Ahora solo avisa del par que estás mirando. Pulsa para que avise de los 20."
+                : "Avisa de los 20 pares vigilados. Un giro general puede parir señales en casi todos a la vez, así que se pitan las primeras y el resto queda en la lista."
+            }
+            className="ml-auto rounded border border-[var(--color-line)] px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-dim)] transition-colors hover:text-[var(--color-body)]"
+          >
+            {alcance === "par" ? "solo este par" : `los ${desk.tracked || 20} pares`}
+          </button>
+          <button
             onClick={alternarAlarma}
             title={
               alarmaOn
                 ? "Suena un aviso cuando nace una señal. Sube para largo, baja para corto."
                 : "Activar el aviso sonoro. El navegador exige este clic: sin él no puede sonar nada."
             }
-            className="ml-auto rounded border px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
+            className="rounded border px-2.5 py-1 font-display text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
             style={{
               color: alarmaOn ? "var(--color-up)" : "var(--color-dim)",
               borderColor: alarmaOn ? "rgba(33,212,160,0.45)" : "var(--color-line)",
@@ -454,6 +475,40 @@ export default function TradingPanel({ api, desk }: { api: MarketApi; desk: Trad
             {alarmaOn ? "Alarma activada" : "Alarma apagada"}
           </button>
         </div>
+
+        {/*
+          QUÉ PAR AVISÓ. Un pitido a secas no lo dice, y con veinte pares
+          vigilados eso lo vuelve inútil: te enteras de que pasó algo pero no
+          de dónde. Cada aviso lleva al par con un clic.
+        */}
+        {avisos.length > 0 && (
+          <div className="mb-3 rounded-lg border border-[var(--color-line)] bg-[rgba(15,21,34,0.5)] px-3 py-2.5">
+            <div className="mb-1.5 flex items-baseline gap-2">
+              <span className="etiqueta">Últimos avisos</span>
+              <button onClick={limpiarAvisos} className="etiqueta ml-auto hover:text-[var(--color-down)]">
+                limpiar
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {avisos.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => api.setSymbol(a.symbol)}
+                  title={`Ir a ${a.symbol}. Nació a las ${f.clockUTC(a.at)} UTC.`}
+                  className="rounded border border-[var(--color-line)] px-2 py-1 text-left transition-colors hover:border-[var(--color-accent)]"
+                >
+                  <span
+                    className="font-display text-[10px] font-bold tracking-wide"
+                    style={{ color: a.side === "long" ? "var(--color-up)" : "var(--color-down)" }}
+                  >
+                    {a.side === "long" ? "▲" : "▼"} {a.symbol.replace("USDT", "")}
+                  </span>
+                  <span className="ml-1.5 text-[10px] text-[var(--color-dim)]">{a.timeframe}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {desk.signals.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--color-line)] px-5 py-6 text-center">
