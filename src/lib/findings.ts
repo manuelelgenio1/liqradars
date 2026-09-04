@@ -230,7 +230,7 @@ export const FINDINGS: Finding[] = [
     numbers:
       "el conjunto da +0,043R con t=3,04 en 4H y +0,118R con t=3,21 en diario — pero LARGOS +0,090R (t=4,69) contra CORTOS −0,021R (t=−1,04)",
     meaning:
-      "Con toda la historia y 24 pares el resultado SUPERA el listón, y aun así no cuenta como hallazgo: toda la ventaja está en los largos y los cortos no ganan nada. Esa es la firma de la deriva, no de la predicción — las cripto subieron entre 2019 y hoy, y los 25 pares se eligieron por su volumen ACTUAL, o sea los supervivientes. Un sistema que sigue tendencia sobre activos que tendieron al alza gana sin acertar nada. Queda abierta y no descartada porque los cortos están planos y no simétricamente negativos, lo que dejaría sitio a un componente pequeño de habilidad bajo uno grande de deriva. Separarlos exige comparar contra el rendimiento incondicional del mismo periodo, no contra cero.",
+      "Con toda la historia y 24 pares el resultado SUPERA el listón, y aun así no cuenta como hallazgo: toda la ventaja está en los largos y los cortos no ganan nada. Esa es la firma de la deriva, no de la predicción — las cripto subieron entre 2019 y hoy, y los 25 pares se eligieron por su volumen ACTUAL, o sea los supervivientes. Un sistema que sigue tendencia sobre activos que tendieron al alza gana sin acertar nada. Queda abierta y no descartada porque los cortos están planos y no simétricamente negativos, lo que dejaría sitio a un componente pequeño de habilidad bajo uno grande de deriva. NO SE PUDO separar una cosa de la otra con esta medición: hacen falta comparar contra el rendimiento incondicional del mismo periodo, no contra cero.",
   },
   {
     id: "stop-ancho-5m",
