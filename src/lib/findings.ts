@@ -226,11 +226,11 @@ export const FINDINGS: Finding[] = [
     id: "mesa-4h-diario",
     hypothesis: "La misma mesa sí funciona en 4H y diario, donde el coste es veinte veces menor",
     verdict: "abierta",
-    sample: "24 pares · 215.372 velas desde 2019 · comparación contra 209.396 largos y cortos incondicionales",
+    sample: "24 pares · 215.372 velas desde 2019 · partido 65/35 · 2.112 sucesos en el tramo que no se tocó al elegir",
     numbers:
-      "ventaja sobre el MISMO lado en momentos cualesquiera: 4H largos +0,065R (t=3,41) · 4H cortos +0,011R (t=0,57) · diario largos +0,116R (t=2,26) · diario cortos +0,027R (t=0,54) · listón 2,50",
+      "ventaja sobre el MISMO lado en momentos cualesquiera, FUERA DE MUESTRA: 4H largos +0,071R (t=2,03) · 4H cortos −0,030R (t=−0,84) · diario largos +0,013R (t=0,15) · diario cortos +0,033R (t=0,40) · listón 2,50 · mínimo detectable 0,087R",
     meaning:
-      "Es lo más cerca que ha estado el proyecto de un sí, y sigue sin serlo. Comparar contra cero daba +0,043R con t=3,04, pero todo venía de los largos: deriva, porque las cripto subieron y los pares se eligieron por su volumen de HOY, o sea supervivientes. Comparando contra el mismo lado en momentos cualesquiera —misma deriva, mismos activos, mismo periodo— la ventaja sobrevive y es positiva en las CUATRO celdas. Pero solo una cruza el listón. Se preregistró que hacían falta las dos, y los cortos dan t=0,57: NO SE PUDO confirmar. Que las cuatro apunten igual es alentador y no es prueba, porque están correlacionadas. Lo que lo cerraría: datos hacia delante, o más señales cortas.",
+      "El +0,065R con t=3,41 se había medido sobre toda la historia de una vez, sin partir. Partido 65/35, el diario se deshace —de +0,116R a +0,013R— y en 4H solo aguantan los largos, con el mismo tamaño en las dos mitades (+0,059R y +0,071R) pero sin llegar al listón en ninguna. Los cortos cambian de signo entre mitades, que es la firma del ruido. NO SE PUDO confirmar ni descartar: en el tramo de confirmación el mínimo detectable es 0,087R, mayor que el propio efecto que se buscaba, así que ese tramo nunca tuvo con qué. Lo que sí queda medido es la asimetría (largos − cortos = +0,101R, t=2,01): una ventaja de un solo lado, ya descontada la deriva, no es acierto de dirección. Lo que lo cerraría: datos hacia delante — que es justo lo que el registro está acumulando en 4H.",
   },
   {
     id: "stop-ancho-5m",
@@ -296,6 +296,16 @@ export const FINDINGS: Finding[] = [
     meaning:
       "Ninguna de las dos lecturas opuestas se acerca al listón. Y el agotamiento acierta 56,1 % contra 53,0 % de base con retorno negativo: la trampa otra vez.",
     venue: "Hyperliquid",
+  },
+  {
+    id: "liquidaciones-okx",
+    hypothesis: "Lo mismo medido en otro mercado: el estallido se agota y el precio rebota",
+    verdict: "abierta",
+    sample: "28 observaciones cerradas · 14 sucesos independientes · 31 horas · 4 pares · grabador horario propio",
+    numbers: "rebote +0,273 % por suceso · t = 2,20 · en Hyperliquid la MISMA lectura daba −0,201 %",
+    meaning:
+      "Apareció al replicar en OKX una hipótesis ya descartada, y apunta al revés que la medida de 157 sucesos. Eso es exactamente lo que hace perder dinero a la gente: un t por encima de 2 en una muestra de fin de semana. No se pudo concluir nada — 14 sucesos están por debajo del mínimo de 20 del proyecto, las 31 horas son un solo régimen de mercado, y un cambio de signo entre mercados es la misma firma de ruido que un cambio de signo entre mitades. El grabador sigue corriendo; si a los 60 sucesos mantiene el signo, entonces habrá algo que mirar.",
+    venue: "OKX",
   },
   {
     id: "iman",
