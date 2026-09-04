@@ -66,6 +66,16 @@ export const FINDINGS: Finding[] = [
       "Se apuntó primero como problema de coste y resultó no serlo. El replay separa las dos cosas: quitando la comisión entera, la ventaja bruta sigue siendo cero o negativa. No hay nada que proteger, así que ningún ajuste de stop, objetivo o tamaño puede salvarlo.",
   },
   {
+    id: "footprint-agresor",
+    hypothesis: "El desequilibrio agresor del footprint anticipa la continuación del precio",
+    verdict: "descartada",
+    sample: "quintil superior del desequilibrio · 10 pares · 2.459 sucesos en 5m y 2.647 en 4H, fuera de muestra",
+    numbers:
+      "bruto +0,016 ATR en el mejor caso (t≈1,2) contra un coste de 0,087 ATR en 4H y 0,762 en 5m",
+    meaning:
+      "Es de otra familia que los indicadores de precio —quién cruzó el spread no está en la serie de cierres— y por eso merecía medirse. Pero el bruto está pegado a cero en los dos marcos y ni siquiera es significativo por sí solo. Para cubrir el coste tendría que ser cinco veces mayor, y hay potencia para descartarlo: está a casi siete errores típicos. En 5m el coste vale 0,76 ATR por operación, así que ninguna señal de esa escala sobrevive prediga lo que prediga.",
+  },
+  {
     id: "mesa-4h-diario",
     hypothesis: "La misma mesa sí funciona en 4H y diario, donde el coste es veinte veces menor",
     verdict: "abierta",
