@@ -1,0 +1,74 @@
+# ============================================================
+# Grabador del registro de señales.
+#
+# Cada hora despierta, mira la última vela CERRADA de cada par y marco, anota
+# las señales que nacen y cierra las que sus velas ya resolvieron.
+#
+# Por qué en la nube y no en el navegador: el registro de aciertos vivía en el
+# almacenamiento local de una pestaña, así que la única prueba capaz de cerrar
+# la pregunta de 4H dependía de que nadie cerrara esa pestaña durante semanas.
+# Y al cerrarla no saltaba ningún error: simplemente dejaba de haber datos.
+#
+# El commit ES el registro. Cada señal queda escrita, con fecha, ANTES de
+# conocerse su desenlace. No hay forma de recortar la muestra a posteriori sin
+# que quede en el historial — que es justo lo que hace que esto valga como
+# prueba y no como ilustración.
+#
+# Por qué cada hora: es lo que hace falta para no perderse ningún cierre de 1H,
+# y de paso recupera sola cualquier ejecución fallida, porque todo cuelga de
+# velas cerradas y no del instante en que se despierte. Repetirla dentro de la
+# misma hora no cambia nada: se recuerda la última vela juzgada de cada par.
+# ============================================================
+name: Grabar señales de la mesa
+
+on:
+  schedule:
+    - cron: "37 * * * *" # a y 37: lejos de la hora en punto, que va saturada
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Mismo grupo que el grabador de liquidaciones: los dos escriben en data/ y
+# empujan al mismo sitio, así que se ponen en fila en vez de pisarse.
+concurrency:
+  group: grabador
+  cancel-in-progress: false
+
+jobs:
+  grabar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Hace falta instalar porque el grabador importa `src/lib` — el MISMO
+      # código que corre en la app. Reescribir la lógica aquí en JavaScript
+      # suelto se habría ahorrado este paso y habría medido otra mesa: la copia
+      # se desincroniza al primer cambio y los números siguen pareciendo
+      # creíbles. Treinta segundos por hora es un precio ridículo por eso.
+      - run: npm ci
+
+      - name: Grabar señales
+        id: rec
+        run: npx tsx scripts/record-desk.ts
+
+      - name: Guardar en el historial
+        if: steps.rec.outputs.changed == 'true'
+        run: |
+          git config user.name "grabador"
+          git config user.email "grabador@users.noreply.github.com"
+          git add data/deskledger.json
+          git commit -m "mesa: ${{ steps.rec.outputs.summary }}"
+          # Otra ejecución pudo haber escrito mientras tanto.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
+            sleep 5
+          done
+          exit 1
