@@ -7,9 +7,9 @@
     "1D",
     "1W"
   ],
-  "updatedAt": 1788567878443,
-  "lastRunAt": 1788567878443,
-  "lastError": null,
+  "updatedAt": 1788570335410,
+  "lastRunAt": 1788570335410,
+  "lastError": "BTCUSDT 1H: HTTP 451 en BTCUSDT 1h · BTCUSDT 4H: HTTP 451 en BTCUSDT 4h · BTCUSDT 1D: HTTP 451 en BTCUSDT 1d",
   "ultimaBarra": {
     "BTCUSDT|1H": 1788562800000,
     "BTCUSDT|4H": 1788552000000,
