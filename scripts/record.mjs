@@ -69,6 +69,12 @@ const OKX = "https://www.okx.com/api/v5";
 const BINANCE = "https://fapi.binance.com/fapi/v1";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** de dónde salió cada ventana de velas, para que el fichero no mienta sobre su origen */
+const via = {};
+
+/** lo que fallo en esta vuelta; acaba en el fichero, no solo en los registros */
+const problemas = [];
+
 async function getJson(url, intentos = 3) {
   for (let i = 0; i < intentos; i++) {
     try {
@@ -143,13 +149,78 @@ async function liquidaciones(family) {
     .sort((a, b) => a.ts - b.ts);
 }
 
-async function velas(symbol, startTime, endTime) {
+/*
+  VELAS DE UN MINUTO, DE BINANCE O DE OKX.
+
+  POR QUÉ HAY RESPALDO. Binance responde 451 —«no disponible por razones
+  legales»— a las IP de los runners de GitHub. Este grabador estuvo 37 HORAS
+  roto por eso sin que nadie se enterara: `getJson` devuelve null cuando falla,
+  `velas` devolvía [] y las observaciones se quedaban sin precio, así que ni se
+  anotaban nuevas ni se cerraban las viejas. La ejecución seguía saliendo en
+  verde y el resumen decía «latido · sin novedad», que era literalmente cierto
+  y completamente engañoso. Dos observaciones llevaban día y medio sin cerrar
+  con un horizonte de UNA HORA.
+
+  AQUÍ NO HACE FALTA MULTIPLICADOR, y conviene decir por qué: los seis pares de
+  este grabador son BTC, ETH, SOL, BNB, XRP y DOGE, ninguno de los "1000X" que
+  Binance cotiza multiplicados. Su equivalencia en OKX ya está escrita a mano
+  en la tabla de arriba, par por par. En el grabador de señales, que recorre
+  los 20 de más volumen, sí hay 1000PEPE y compañía y allí el multiplicador es
+  obligatorio — está en `src/lib/okxklines.ts` con sus pruebas.
+
+  OKX pagina hacia atrás con `after` y entrega 100 por vuelta, de la más nueva
+  a la más vieja. Se piden páginas hasta cubrir la ventana.
+*/
+async function velasBinance(symbol, startTime, endTime) {
   const j = await getJson(
     `${BINANCE}/klines?symbol=${symbol}&interval=1m&limit=1500&startTime=${startTime}&endTime=${endTime}`
   );
   if (!Array.isArray(j)) return [];
   return j.map((k) => ({ t: Number(k[0]), c: Number(k[4]) }));
 }
+
+async function velasOkx(instId, startTime, endTime) {
+  const out = [];
+  let after = endTime + 60_000;
+  for (let pagina = 0; pagina < 12; pagina++) {
+    const j = await getJson(
+      `${OKX}/market/history-candles?instId=${instId}&bar=1m&limit=100&after=${after}`
+    );
+    const filas = j && Array.isArray(j.data) ? j.data : null;
+    if (!filas || !filas.length) break;
+    for (const f of filas) {
+      const t = Number(f[0]);
+      const c = Number(f[4]);
+      // `confirm` en la posición 8: "0" es una vela todavía abierta.
+      if (f.length > 8 && String(f[8]) !== "1") continue;
+      if (Number.isFinite(t) && c > 0) out.push({ t, c });
+    }
+    const masVieja = Math.min(...filas.map((f) => Number(f[0])));
+    if (!Number.isFinite(masVieja) || masVieja <= startTime) break;
+    after = masVieja;
+    await sleep(120);
+  }
+  // `precioEn` recorre de vieja a nueva y corta al pasarse: el orden importa.
+  return out.filter((k) => k.t >= startTime - 60_000 && k.t <= endTime + 60_000).sort((a, b) => a.t - b.t);
+}
+
+/** Binance primero, que es la fuente de siempre; OKX si bloquea. */
+async function velas(s, startTime, endTime) {
+  if (!binanceDescartado) {
+    const k = await velasBinance(s.key, startTime, endTime);
+    if (k.length) return { velas: k, via: "binance" };
+    // Tres ventanas vacías seguidas y se deja de insistir en esta vuelta:
+    // cuando Binance bloquea, bloquea todo, y cada intento son tres reintentos
+    // con espera. El contador no se guarda, así que la vuelta siguiente lo
+    // reintenta y vuelve solo a Binance en cuanto deje de bloquear.
+    if (++binanceVacias >= 3) binanceDescartado = true;
+  }
+  const k = await velasOkx(s.okxInst, startTime, endTime);
+  return { velas: k, via: k.length ? "okx" : "ninguna" };
+}
+
+let binanceVacias = 0;
+let binanceDescartado = false;
 
 /** Precio de cierre del minuto que contiene `ts`, o el más cercano anterior. */
 function precioEn(velas, ts) {
@@ -169,9 +240,10 @@ function cargar() {
       updatedAt: Number(j.updatedAt) || 0,
       lastDataAt: Number(j.lastDataAt) || 0,
       runs: Number(j.runs) || 0,
+      lastError: null,
     };
   } catch {
-    return { obs: [], updatedAt: 0, lastDataAt: 0, runs: 0 };
+    return { obs: [], updatedAt: 0, lastDataAt: 0, runs: 0, lastError: null };
   }
 }
 
@@ -184,7 +256,21 @@ function guardar(estado, huboDatos) {
     JSON.stringify(
       {
         schema: 1,
-        source: "okx-liquidation-orders + binance-klines",
+        /*
+          De dónde salieron los datos DE VERDAD, no de dónde deberían salir.
+          Antes ponía "binance-klines" fijo, así que durante las 37 horas en
+          que Binance bloqueaba, el fichero seguía afirmándolo. Un registro que
+          se equivoca sobre su procedencia invita a atribuirle a un mercado los
+          datos de otro.
+        */
+        source:
+          "okx-liquidation-orders + velas: " +
+          (Object.entries(via).map(([k, n]) => `${k} ${n}`).join(" · ") || "ninguna"),
+        /*
+          QUÉ FALLÓ, escrito aquí y no solo en unos registros que hacen falta
+          permisos para abrir. Es lo que habría delatado el 451 el primer día.
+        */
+        lastError: estado.lastError ?? null,
         burstUsd: BURST_USD,
         windowMs: VENTANA_MS,
         cooldownMs: COOLDOWN_MS,
@@ -254,7 +340,10 @@ async function main() {
     if (aceptados.length) {
       const desde = aceptados[0][0] - 5 * 60_000;
       const hasta = aceptados[aceptados.length - 1][0] + 5 * 60_000;
-      const k = await velas(s.key, desde, hasta);
+      const r = await velas(s, desde, hasta);
+      const k = r.velas;
+      via[r.via] = (via[r.via] ?? 0) + 1;
+      if (!k.length) problemas.push(`${s.key}: sin velas en ${new Date(desde).toISOString().slice(11, 16)}-${new Date(hasta).toISOString().slice(11, 16)}`);
       for (const [min, c] of aceptados) {
         const price = precioEn(k, min);
         if (!(price > 0)) continue; // sin precio fiable no se anota nada
@@ -280,7 +369,10 @@ async function main() {
     if (pendientes.length) {
       const desde = Math.min(...pendientes.map((o) => o.ts)) + HORIZON_MS - 60_000;
       const hasta = Math.max(...pendientes.map((o) => o.ts)) + HORIZON_MS + 5 * 60_000;
-      const k = await velas(s.key, desde, hasta);
+      const r = await velas(s, desde, hasta);
+      const k = r.velas;
+      via[r.via] = (via[r.via] ?? 0) + 1;
+      if (!k.length) problemas.push(`${s.key}: sin velas en ${new Date(desde).toISOString().slice(11, 16)}-${new Date(hasta).toISOString().slice(11, 16)}`);
       for (const o of pendientes) {
         // Una observación cerrada NUNCA se reescribe.
         if (o.fwdPct !== undefined && o.fwdPct !== null) continue;
@@ -317,7 +409,13 @@ async function main() {
   */
   const huboDatos = nuevos + cerrados > 0;
   const tocaLatido = Date.now() - estado.updatedAt >= LATIDO_MS;
-  const hayQueGuardar = huboDatos || tocaLatido;
+  estado.lastError = problemas.length ? problemas.slice(0, 4).join(" · ") : null;
+  /*
+    Un fallo de red obliga a guardar aunque no haya novedades: si no, el motivo
+    se perdería con la ejecución y volveríamos a estar como durante las 37
+    horas en que esto informaba en verde sin grabar nada.
+  */
+  const hayQueGuardar = huboDatos || tocaLatido || problemas.length > 0;
   const motivo = huboDatos
     ? `+${nuevos} nuevas, +${cerrados} cerradas (${cerradasAhora} cerradas de ${estado.obs.length})`
     : `latido · sin novedad (${cerradasAhora} cerradas de ${estado.obs.length})`;

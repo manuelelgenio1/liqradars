@@ -301,10 +301,10 @@ export const FINDINGS: Finding[] = [
     id: "liquidaciones-okx",
     hypothesis: "Lo mismo medido en otro mercado: el estallido se agota y el precio rebota",
     verdict: "abierta",
-    sample: "28 observaciones cerradas · 14 sucesos independientes · 31 horas · 4 pares · grabador horario propio",
-    numbers: "rebote +0,273 % por suceso · t = 2,20 · en Hyperliquid la MISMA lectura daba −0,201 %",
+    sample: "46 observaciones cerradas · 23 sucesos independientes · 61 horas · 6 pares · grabador horario propio",
+    numbers: "rebote +0,228 % por suceso · t = 2,70 · en Hyperliquid la MISMA lectura daba −0,201 % con 157 sucesos",
     meaning:
-      "Apareció al replicar en OKX una hipótesis ya descartada, y apunta al revés que la medida de 157 sucesos. Eso es exactamente lo que hace perder dinero a la gente: un t por encima de 2 en una muestra de fin de semana. No se pudo concluir nada — 14 sucesos están por debajo del mínimo de 20 del proyecto, las 31 horas son un solo régimen de mercado, y un cambio de signo entre mercados es la misma firma de ruido que un cambio de signo entre mitades. El grabador sigue corriendo; si a los 60 sucesos mantiene el signo, entonces habrá algo que mirar.",
+      "Apareció al replicar en OKX una hipótesis ya descartada, y apunta al revés que la medida de 157 sucesos. Al doblar la muestra el efecto ENCOGIÓ —de +0,273 % a +0,228 %— y la t subió solo porque hay más datos: es lo que se espera de algo que se está acercando a cero despacio, no de una ventaja. Ya pasa el mínimo de 20 sucesos del proyecto, así que la pega ya no es el tamaño: es que sesenta y una horas son un solo régimen de mercado y que un cambio de signo entre mercados es la misma firma de ruido que un cambio de signo entre mitades. No se pudo decidir contra 157 sucesos que dicen lo contrario. Si a los 60 sucesos, y con otro régimen dentro, mantiene el signo, entonces habrá algo que mirar.",
     venue: "OKX",
   },
   {
