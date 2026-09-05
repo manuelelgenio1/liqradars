@@ -1,15 +1,37 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: ninguna",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1788604786881,
- "lastDataAt": 1788571907675,
- "runs": 14,
+ "updatedAt": 1788616393384,
+ "lastDataAt": 1788616393384,
+ "runs": 15,
  "obs": [
+  {
+   "id": "srv-1788612420000-XRPUSDT",
+   "ts": 1788612420000,
+   "symbol": "XRPUSDT",
+   "dominant": "short",
+   "notional": 363866,
+   "purity": 1,
+   "price": 1.4144,
+   "fwdPct": -0.0919,
+   "resolvedTs": 1788616020000
+  },
+  {
+   "id": "srv-1788611940000-DOGEUSDT",
+   "ts": 1788611940000,
+   "symbol": "DOGEUSDT",
+   "dominant": "short",
+   "notional": 312076,
+   "purity": 1,
+   "price": 0.0872,
+   "fwdPct": 0.2982,
+   "resolvedTs": 1788615540000
+  },
   {
    "id": "srv-1788533040000-BTCUSDT",
    "ts": 1788533040000,
