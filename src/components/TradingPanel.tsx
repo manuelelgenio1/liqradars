@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useNow } from "../hooks/useNow";
 import type { AlarmaApi } from "../hooks/useSignalAlarm";
 import type { MarketApi } from "../hooks/useMarket";
@@ -8,7 +8,7 @@ import { ENFRIANDO_MAX_R, FRESCA_MAX_R, type SignalState } from "../lib/desksign
 import { ROUND_TRIP_COST_PCT } from "../lib/signals";
 import { decimalsFor } from "../lib/universe";
 import * as f from "../lib/format";
-import { MIN_SAMPLE, type LedgerStats } from "../lib/deskledger";
+import { MIN_SAMPLE, stats as ledgerStats, statsByTimeframe, type LedgerStats } from "../lib/deskledger";
 import { COLOR_TONO, verdictFor } from "../lib/tfverdict";
 
 /* ============================================================
@@ -281,8 +281,37 @@ const COLOR_VEREDICTO: Record<LedgerStats["verdict"], string> = {
   comisión se lleva medio R y en diario dos centésimas. Una sola cifra global
   escondería justo lo que más decide.
 */
+/*
+  UNA MEDIA DE TODO NO ES UNA MEDIA DE NADA.
+
+  El titular del registro juntaba las seis temporalidades en una sola cifra, y
+  la mezcla estaba dominada por la que menos vale: 220 operaciones de 5m contra
+  5 de 4H. Esa "esperanza neta" era en la práctica el veredicto de 5 minutos
+  con una etiqueta general encima, y encima ahogaba justo lo que el registro
+  está corriendo para medir.
+
+  No se pueden promediar juntas porque no compiten en la misma liga: la
+  comisión pide acertar el 94 % en 5m y el 40 % en 4H. Sumar las dos da un
+  número que no describe ninguna de las dos.
+
+  Por defecto se cuentan solo las temporalidades que no están descartadas. El
+  interruptor deja ver el total, y entonces lo dice claramente — no se esconde
+  el dato, se le quita el asiento de delante.
+*/
 function Registro({ desk }: { desk: TradingDesk }) {
-  const s = desk.ledgerStats;
+  const [todo, setTodo] = useState(false);
+  // `string[]` y no el literal de DESK_TFS: los apuntes del registro traen su
+  // temporalidad como texto suelto, y comparar contra la unión literal no compila.
+  const operables = useMemo<string[]>(() => DESK_TFS.filter((k) => verdictFor(k)?.tone !== "descartado"), []);
+  const entradas = useMemo(
+    () => (todo ? desk.ledger : desk.ledger.filter((e) => operables.includes(e.timeframe))),
+    [todo, desk.ledger, operables]
+  );
+  const s = useMemo(() => ledgerStats(entradas), [entradas]);
+  // El desglose sigue al interruptor: si la cifra grande excluye 5m, la tabla
+  // de debajo tiene que excluirla también o se contradicen a la vista.
+  const porMarco = useMemo(() => statsByTimeframe(entradas), [entradas]);
+  const descartadas = desk.ledger.length - entradas.length;
   const col = COLOR_VEREDICTO[s.verdict];
 
   return (
@@ -292,6 +321,19 @@ function Registro({ desk }: { desk: TradingDesk }) {
         <span className="nota-sm" title="La mesa sigue los 20 pares de más volumen, no solo el que tienes delante: si no, el registro solo acumularía señales del par donde te quedaste quieto.">
           {desk.tracked > 0 ? `${desk.tracked} pares · ${desk.liveTotal} vivas` : "cargando pares"}
         </span>
+        {(descartadas > 0 || todo) && (
+          <button
+            onClick={() => setTodo((v) => !v)}
+            className="etiqueta hover:text-[var(--color-bright)]"
+            title={
+              todo
+                ? "Ahora mismo cuenta 5m y 30m, que están descartadas: la cifra grande mezcla ligas distintas."
+                : `Fuera del recuento: ${descartadas} operaciones de temporalidades descartadas (5m y 30m).`
+            }
+          >
+            {todo ? "contando TODO" : `sin 5m/30m · ${descartadas} fuera`}
+          </button>
+        )}
         <span className="ml-auto font-display text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: col }}>
           {s.verdict}
         </span>
@@ -356,12 +398,12 @@ function Registro({ desk }: { desk: TradingDesk }) {
             <p className="nota-sm">{s.note}</p>
           </div>
 
-          {desk.ledgerByTf.length > 1 && (
+          {porMarco.length > 1 && (
             <div className="border-t border-[var(--color-line-soft)]">
               <div className="px-4 pt-2.5">
                 <span className="etiqueta">Por temporalidad</span>
               </div>
-              {desk.ledgerByTf.map(({ timeframe, stats: t }) => (
+              {porMarco.map(({ timeframe, stats: t }) => (
                 <div key={timeframe} className="flex items-center gap-3 px-4 py-2">
                   <span className="seccion w-14 shrink-0">{timeframe}</span>
                   <span className="dato-m w-14 shrink-0" style={{ color: "var(--color-dim)" }}>
@@ -553,6 +595,47 @@ export default function TradingPanel({
               Los que dejes apagados se siguen vigilando y sus señales entran igual en el registro. Solo dejan de
               sonar.
             </p>
+
+            {/*
+              DE QUÉ MARCOS SUENA. 5m y 30m vienen apagados, y el motivo es
+              aritmético: en 5 minutos la comisión de ida y vuelta cuesta más
+              que el riesgo entero de la operación, así que haría falta acertar
+              el 94 %. Despertar a alguien por una señal así es prometerle algo
+              que veintinueve medidas dicen que no está.
+            */}
+            <div className="mt-3 border-t border-[var(--color-line-soft)] pt-2.5">
+              <div className="etiqueta mb-2">De qué temporalidades</div>
+              <div className="flex flex-wrap gap-1.5">
+                {DESK_TFS.map((k) => {
+                  const on = alarma.marcos.includes(k);
+                  const v = verdictFor(k);
+                  const muerto = v?.tone === "descartado";
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => alarma.alternarMarco(k)}
+                      title={v?.detail}
+                      className="rounded border px-2 py-1 font-display text-[10px] font-bold tracking-wide transition-colors"
+                      style={{
+                        color: on ? (muerto ? "var(--color-warn)" : "var(--color-up)") : "var(--color-dim)",
+                        borderColor: on
+                          ? muerto
+                            ? "rgba(255,181,69,0.45)"
+                            : "rgba(33,212,160,0.45)"
+                          : "var(--color-line)",
+                        background: on ? (muerto ? "rgba(255,181,69,0.12)" : "var(--color-up-soft)") : "transparent",
+                      }}
+                    >
+                      {k}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="nota-sm mt-2">
+                5m y 30m vienen apagados: ahí la comisión pide acertar el 94 % y el 52 %, y la mesa acierta el 35 %.
+                Puedes encenderlos, pero salen en ámbar para que no se te olvide.
+              </p>
+            </div>
           </div>
         )}
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLatest } from "./useLatest";
 import * as alarm from "../lib/alarm";
 import * as storage from "../lib/storage";
+import { DESK_TFS } from "./useTradingDesk";
+import { verdictFor } from "../lib/tfverdict";
 import type { SignalState } from "../lib/desksignals";
 import type { Side } from "../lib/types";
 
@@ -37,6 +39,21 @@ export const MAX_PITIDOS = 3;
 const MAX_AVISOS = 12;
 
 const LS_PARES = "liqradar:alarma:pares";
+const LS_MARCOS = "liqradar:alarma:marcos";
+
+/*
+  DE QUÉ MARCOS SUENA, POR DEFECTO.
+
+  Salen del expediente, no de aquí: los que `tfverdict` da por DESCARTADOS
+  —5 minutos y 30 minutos— empiezan apagados. Una alarma que te despierta por
+  una señal de 5m está prometiendo algo que veintinueve medidas dicen que no
+  existe, y encima ahoga las que sí importan: el registro lleva 220
+  operaciones de 5m contra 5 de 4H.
+
+  Se pueden volver a encender a mano. Lo que no puede es venir encendido de
+  fábrica lo que la propia app etiqueta como sin ventaja.
+*/
+const MARCOS_POR_DEFECTO = DESK_TFS.filter((k) => verdictFor(k)?.tone !== "descartado");
 const LS_ON = "liqradar:alarma:on";
 
 export interface Aviso {
@@ -63,6 +80,9 @@ export interface AlarmaApi {
   alternarAlarma: () => void;
   /** pares que avisan; el resto se vigila igual pero en silencio */
   seleccion: string[];
+  /** marcos que avisan; 5m y 30m vienen apagados porque están descartados */
+  marcos: string[];
+  alternarMarco: (key: string) => void;
   alternarPar: (sym: string) => void;
   elegirTodos: (syms: string[]) => void;
   elegirNinguno: () => void;
@@ -121,6 +141,29 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     return Array.isArray(guardada) && guardada.length ? guardada : [symbol];
   });
 
+  const [marcos, setMarcos] = useState<string[]>(() => {
+    const g = storage.read<string[]>(LS_MARCOS, []);
+    return Array.isArray(g) && g.length ? g : [...MARCOS_POR_DEFECTO];
+  });
+
+  /*
+    El guardado va FUERA del actualizador, por el mismo motivo que en la
+    selección de pares tres líneas más abajo: React puede invocar la función
+    que se le pasa a `setEstado` dos veces, así que escribir en disco ahí
+    dentro es un efecto secundario que funciona por casualidad. La lista
+    vigente se lee de un ref y se guarda una sola vez, donde se ve.
+  */
+  const marcosRef = useLatest(marcos);
+  const alternarMarco = useCallback(
+    (key: string) => {
+      const prev = marcosRef.current;
+      const next = prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key];
+      setMarcos(next);
+      storage.write(LS_MARCOS, next);
+    },
+    [marcosRef]
+  );
+
   const guardar = useCallback((next: string[]) => {
     setSeleccion(next);
     storage.write(LS_PARES, next);
@@ -173,7 +216,7 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
       return ok;
     });
   }, []);
-  const optsRef = useLatest({ enabled: alarmaOn, seleccion });
+  const optsRef = useLatest({ enabled: alarmaOn, seleccion, marcos });
 
   /*
     SOLO SE AVISA DE LO NACIDO DESPUÉS DE ARRANCAR.
@@ -225,12 +268,13 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     seen.current = d.seen;
     if (!d.nuevas.length) return;
 
-    const { enabled, seleccion: elegidos } = optsRef.current;
+    const { enabled, seleccion: elegidos, marcos: marcosOn } = optsRef.current;
     const nuevas = d.nuevas
       .map((id) => signals.find((x) => x.signal.id === id))
       .filter((s): s is SignalState => !!s)
       .filter((s) => s.signal.bornAt >= desde.current)
-      .filter((s) => elegidos.includes(s.signal.symbol));
+      .filter((s) => elegidos.includes(s.signal.symbol))
+      .filter((s) => marcosOn.includes(s.signal.timeframe));
     if (!nuevas.length) return;
 
     setAvisos((prev) =>
@@ -271,6 +315,8 @@ export function useSignalAlarm(signals: SignalState[], symbol: string): AlarmaAp
     alarmaPendiente,
     alternarAlarma,
     seleccion,
+    marcos,
+    alternarMarco,
     alternarPar,
     elegirTodos,
     elegirNinguno,

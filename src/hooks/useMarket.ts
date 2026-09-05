@@ -40,6 +40,58 @@ const WARMUP = 500;
 
 const K_SYMBOL = "liqradar:symbol";
 const K_TF = "liqradar:tf";
+const K_TF_MUDADO = "liqradar:tf:mudado-1h";
+
+/*
+  LA APP ARRANCA EN 1 HORA, Y NO ES UNA PREFERENCIA ESTÉTICA.
+
+  Es la aritmética de la comisión, medida sobre los datos de ahora mismo. Para
+  que un trade salga a cero hace falta acertar un porcentaje que depende solo
+  del coste y de la relación riesgo/beneficio:
+
+      5m    comisión 1,51R   →  hace falta acertar el 94,0 %
+      30m   comisión 0,39R   →                       52,0 %
+      1H    comisión 0,20R   →                       44,8 %
+      4H    comisión 0,07R   →                       40,1 %
+      1D    comisión 0,02R   →                       38,4 %
+                                     el azar da el   37,5 %
+
+  En 5 minutos la comisión de ida y vuelta cuesta MÁS que el riesgo entero de
+  la operación. Ese 94 % no es difícil: es la aritmética diciendo que no. La
+  mesa acierta el 35 %, y veintinueve hipótesis medidas no encontraron nada
+  que suba de ahí.
+
+  Arrancar en 5m era poner por delante el marco donde el listón es imposible.
+*/
+const DEFECTO_TF = "1H";
+
+/*
+  La mudanza se hace UNA sola vez, y ese es todo el propósito de la marca.
+
+  Sin ella habría dos formas de equivocarse: dejar el 5m guardado de siempre
+  —y entonces cambiar el valor por defecto no serviría de nada para quien ya
+  usaba la app— o forzar 1H en cada carga, que le pisaría la elección a quien
+  de verdad quiera mirar 5m. Se mueve a quien venía de 5m o 30m, se anota que
+  ya está hecho, y a partir de ahí manda siempre el usuario.
+*/
+function tfInicial(): string {
+  const guardado = read<string>(K_TF, "");
+  if (!guardado) return DEFECTO_TF;
+  if (read<boolean>(K_TF_MUDADO, false)) return guardado;
+  write(K_TF_MUDADO, true);
+  if (guardado !== "5m" && guardado !== "30m") return guardado;
+  /*
+    HAY QUE ESCRIBIR EL VALOR NUEVO, no solo devolverlo.
+
+    La primera versión de esto gastaba la marca y no tocaba lo guardado, así
+    que abría en 1H una vez y en la recarga siguiente —con la marca ya puesta—
+    leía el "5m" que seguía en disco y volvía. Una mudanza que solo dura hasta
+    la próxima recarga no es una mudanza. Se vio a la primera prueba en el
+    navegador y no lo habría visto ninguna comprobación de tipos.
+  */
+  write(K_TF, DEFECTO_TF);
+  return DEFECTO_TF;
+}
 const K_VENUE = "liqradar:venue";
 
 export type Health = "viva" | "degradada" | "caida" | "esperando";
@@ -80,7 +132,7 @@ export function useMarket() {
     const s = read<string>(K_SYMBOL, "BTCUSDT");
     return SYMBOLS.some((x) => x.key === s) ? s : "BTCUSDT";
   });
-  const [tf, setTfState] = useState(() => read<string>(K_TF, "5m"));
+  const [tf, setTfState] = useState(tfInicial);
 
   /*
     Dos conceptos distintos que antes estaban mezclados:
