@@ -7,9 +7,9 @@
     "1D",
     "1W"
   ],
-  "updatedAt": 1788570713298,
-  "lastRunAt": 1788570713298,
-  "lastError": null,
+  "updatedAt": 1788571135333,
+  "lastRunAt": 1788571135333,
+  "lastError": "MARSCOINUSDT 1H: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP · MARSCOINUSDT 4H: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP · MARSCOINUSDT 1D: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP",
   "ultimaBarra": {
     "BTCUSDT|1H": 1788566400000,
     "BTCUSDT|4H": 1788552000000,
@@ -83,7 +83,7 @@
     "ARBUSDT|4H": 1788552000000,
     "ARBUSDT|1D": 1788480000000,
     "ARBUSDT|1W": 1787529600000,
-    "PUMPUSDT|1H": 1788562800000,
+    "PUMPUSDT|1H": 1788566400000,
     "PUMPUSDT|4H": 1788552000000,
     "PUMPUSDT|1D": 1788480000000,
     "PUMPUSDT|1W": 1787529600000,
