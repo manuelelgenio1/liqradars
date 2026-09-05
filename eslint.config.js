@@ -9,10 +9,29 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default tseslint.config(
   // Solo se revisa código fuente. `.vercel/output` es el paquete ya construido
   // y aporta 913 avisos sobre código minificado que nadie va a leer.
-  { ignores: ["dist/**", ".vercel/**", "node_modules/**", ".probe/**", "scripts/**", "data/**"] },
+  //
+  // `scripts/` SÍ se revisa, y dejó de estar aquí por un motivo concreto: son
+  // los dos grabadores que corren solos en la nube cada hora durante semanas.
+  // Al quedar fuera del linter y de los tipos, acumularon código muerto sin
+  // que nadie lo viera, y un fallo suyo no se descubre en la pantalla de nadie
+  // — se descubre semanas después, cuando el registro que tenía que decidir
+  // algo resulta que está vacío. Es justo el código que más vigilancia
+  // necesita, no el que menos.
+  //
+  // `.probe/` se queda fuera: son experimentos de usar y tirar, cada uno
+  // contesta una pregunta y no vuelve a ejecutarse.
+  { ignores: ["dist/**", ".vercel/**", "node_modules/**", ".probe/**", "data/**"] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
+
+  // Los grabadores corren en node, no en un navegador.
+  {
+    files: ["scripts/**/*.{ts,mjs,js}"],
+    languageOptions: {
+      globals: { console: "readonly", fetch: "readonly", process: "readonly", setTimeout: "readonly", AbortSignal: "readonly", URL: "readonly" },
+    },
+  },
 
   {
     files: ["src/**/*.{ts,tsx}"],

@@ -202,7 +202,10 @@ async function klines(symbol: string, binanceTf: string, key: string): Promise<{
     try {
       return { velas: await klinesOkx(symbol, key), via: "okx" };
     } catch (e2) {
-      throw new Error(`${(e as Error).message} | respaldo: ${(e2 as Error).message}`);
+      // El mensaje lleva los DOS motivos porque es lo que acaba en `lastError`
+      // y en el fichero: saber que falló el respaldo sin saber qué falló antes
+      // no serviría de nada. `cause` conserva además la pila del segundo.
+      throw new Error(`${(e as Error).message} | respaldo: ${(e2 as Error).message}`, { cause: e2 });
     }
   }
 }
@@ -306,7 +309,6 @@ async function main(): Promise<void> {
       if (velas.length < 60) continue;
       await sleep(80);
 
-      const ultima = velas[velas.length - 1];
       const clave = `${symbol}|${key}`;
       const visto = estado.ultimaBarra[clave] ?? 0;
 

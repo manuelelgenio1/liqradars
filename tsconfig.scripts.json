@@ -1,0 +1,33 @@
+/*
+  Los grabadores, con tipos.
+
+  Estaban fuera de `tsconfig.json`, que solo incluye `src`. Parecía razonable
+  —son dos guiones sueltos— y no lo era: son el código que corre SOLO en la
+  nube cada hora durante semanas, sin que nadie mire una pantalla. Un fallo
+  suyo no se descubre al momento; se descubre el día que hace falta el registro
+  y resulta que está vacío.
+
+  Al meterlos aquí saltó a la primera código muerto acumulado en el propio
+  refactor de hoy. Y hay una razón más de peso: importan de `src/lib`, así que
+  un cambio en la mesa puede romperlos sin que `npm run check` se entere y sin
+  que la app dé el menor síntoma.
+
+  Va aparte del principal en vez de ampliar su `include` porque los grabadores
+  necesitan los tipos de node —`node:fs`, `process`— y la app no: metérselos a
+  la app dejaría pasar un `process.env` en código de navegador, que es
+  precisamente uno de los fallos que este proyecto ya cometió con las claves.
+  El principal sigue corriendo antes y sin tipos de node, así que esa puerta
+  sigue cerrada.
+
+  Basta con incluir `scripts`: TypeScript sigue los imports, así que los
+  módulos de `src/lib` que usan los grabadores entran solos en la comprobación.
+  Incluir `src` entero además rompía —arrastra `liqserver.ts`, que usa
+  `import.meta.env`, cosa de Vite y no de node— y tampoco añadía nada.
+*/
+{
+  "extends": "./tsconfig.json",
+  "include": ["scripts"],
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}
