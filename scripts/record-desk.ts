@@ -49,6 +49,18 @@
   llegue el despertador puntual o con tres horas de retraso. Y de paso la
   ejecución es idempotente — repetirla no cambia nada.
 
+  BINANCE NO DEJA DESDE LA NUBE, Y ESO SE DESCUBRIÓ AQUÍ. La primera ejecución
+  en GitHub falló con 451 —«no disponible por razones legales»—: Binance
+  bloquea las IP de los runners. Desde un ordenador de casa responde 200.
+  Se intenta Binance primero, porque es la fuente de la app, y si bloquea se
+  cae a OKX multiplicando los pares 1000X para que las velas queden en la
+  MISMA escala; mezclarlas sin multiplicar no daría un error, daría pérdidas
+  completas perfectamente formateadas.
+
+  De paso destapó que el grabador de liquidaciones llevaba 37 horas roto por lo
+  mismo, informando en verde con un `catch` vacío: dos observaciones suyas
+  seguían sin resolverse con un horizonte de una hora.
+
   MARCOS. 1H, 4H, diario y semanal. NO 5m ni 30m: con un despertar por hora,
   una señal de 5 minutos nace y muere entre dos ejecuciones y no habría forma
   honesta de anotarla. Antes que un registro incompleto de 5m, ninguno. La
@@ -61,6 +73,7 @@ import { computeLevels, STOP_ATR, TARGET_ATR } from "../src/lib/levels";
 import { maybeBirth, latestFor, type DeskSignal } from "../src/lib/desksignals";
 import { resolve as resolverSenal, append, type LedgerEntry } from "../src/lib/deskledger";
 import { fetchUniverse } from "../src/lib/universe";
+import { OKX_BAR, okxCandlesUrl, okxPar, parseOkxCandles } from "../src/lib/okxklines";
 import { TIMEFRAMES, type Candle } from "../src/lib/types";
 
 const FICHERO = "data/deskledger.json";
@@ -127,7 +140,7 @@ const VACIO: Estado = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function klines(symbol: string, binanceTf: string): Promise<Candle[]> {
+async function klinesBinance(symbol: string, binanceTf: string): Promise<Candle[]> {
   const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${binanceTf}&limit=${VELAS}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} en ${symbol} ${binanceTf}`);
@@ -145,6 +158,53 @@ async function klines(symbol: string, binanceTf: string): Promise<Candle[]> {
   // en cada ejecución y el registro dejaría de ser reproducible.
   velas.pop();
   return velas;
+}
+
+async function klinesOkx(symbol: string, key: string): Promise<Candle[]> {
+  const par = okxPar(symbol);
+  const bar = OKX_BAR[key];
+  if (!par || !bar) throw new Error(`sin equivalente en OKX: ${symbol} ${key}`);
+  const res = await fetch(okxCandlesUrl(par.instId, bar, 300), { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`OKX HTTP ${res.status} en ${par.instId} ${bar}`);
+  const j = (await res.json()) as { code?: string; msg?: string; data?: unknown };
+  if (j.code && j.code !== "0") throw new Error(`OKX code ${j.code} ${j.msg ?? ""} en ${par.instId}`);
+  // El multiplicador es lo que hace que estas velas sean intercambiables con
+  // las de Binance. Sin él, un par 1000X mezclaría dos escalas de precio en el
+  // mismo registro y las señales se resolverían contra la escala equivocada.
+  return parseOkxCandles(j.data, par.mult);
+}
+
+/*
+  BINANCE PRIMERO, OKX SI NO DEJA.
+
+  Binance responde 451 a las IP de los runners de GitHub — comprobado: desde
+  aquí da 200, desde la nube da 451. Se intenta igualmente primero porque es la
+  fuente que usa la app, y solo si falla se cae a OKX, cuyas velas se
+  multiplican para quedar en la misma escala.
+
+  Se prueba en este orden y no al revés para que, si algún día Binance vuelve a
+  dejar, el registro vuelva solo a la fuente de la app sin tocar nada.
+*/
+let binanceCaido = 0;
+
+async function klines(symbol: string, binanceTf: string, key: string): Promise<{ velas: Candle[]; via: string }> {
+  try {
+    // Tres fallos seguidos y se deja de insistir en esta vuelta: cuando
+    // Binance bloquea, bloquea TODO, y probar ochenta veces solo alarga la
+    // ejecucion. El contador se reinicia en la siguiente, para que vuelva sola
+    // a la fuente de la app en cuanto deje de bloquear.
+    if (binanceCaido >= 3) throw new Error("binance descartado en esta vuelta");
+    const velas = await klinesBinance(symbol, binanceTf);
+    binanceCaido = 0;
+    return { velas, via: "binance" };
+  } catch (e) {
+    binanceCaido++;
+    try {
+      return { velas: await klinesOkx(symbol, key), via: "okx" };
+    } catch (e2) {
+      throw new Error(`${(e as Error).message} | respaldo: ${(e2 as Error).message}`);
+    }
+  }
 }
 
 function leerEstado(): Estado {
@@ -183,6 +243,8 @@ async function main(): Promise<void> {
   let nacidas = 0;
   let fallos = 0;
   let saltadas = 0;
+  /** de qué fuente salió cada descarga, para que quede claro qué se está midiendo */
+  const via: Record<string, number> = {};
 
   /*
     EL UNIVERSO NO PUEDE SER UN PUNTO ÚNICO DE FALLO.
@@ -207,6 +269,14 @@ async function main(): Promise<void> {
   }
   let fuente = "universo del dia";
   if (!pares.length) {
+    /*
+      El universo sale del ticker de Binance, que desde la nube da 451 igual
+      que las velas. No se sustituye por el de OKX a propósito: cambiar la
+      LISTA DE PARES a mitad de un registro cambiaría lo que se está midiendo,
+      y el orden por volumen de un mercado no es el del otro. Los pares que ya
+      están en el registro son los correctos precisamente porque son los que se
+      venían midiendo.
+    */
     pares = [...new Set(Object.keys(estado.ultimaBarra).map((k) => k.split("|")[0]))];
     fuente = "pares ya conocidos (el universo no respondio)";
   }
@@ -221,7 +291,9 @@ async function main(): Promise<void> {
       if (!tf) continue;
       let velas: Candle[];
       try {
-        velas = await klines(symbol, tf.binance);
+        const r = await klines(symbol, tf.binance, key);
+        velas = r.velas;
+        via[r.via] = (via[r.via] ?? 0) + 1;
       } catch (e) {
         // Un par que falla no puede tumbar la ejecución entera: la de la hora
         // siguiente lo recupera, porque todo cuelga de velas cerradas.
@@ -347,7 +419,26 @@ async function main(): Promise<void> {
     ejecución en rojo. Al revés —morir aquí— es lo que hacía que el fallo se
     perdiera.
   */
-  salida("ok", String(errores.length === 0));
+  const porVia = Object.entries(via).map(([k, n]) => `${k} ${n}`).join(" · ");
+  if (porVia) console.log(`descargas: ${porVia}`);
+  estado.source = `velas cerradas · ${porVia || "sin descargas"} · mismo codigo que la app`;
+
+  /*
+    CUÁNDO SE PINTA EN ROJO, y por qué no siempre que algo falle.
+
+    Hay pares de Binance que OKX no lista —MARSCOINUSDT, por ejemplo— así que
+    con el respaldo en marcha SIEMPRE va a fallar un puñado de descargas. Si
+    eso pintara la ejecución en rojo, todas saldrían en rojo, y una alarma que
+    suena siempre es una alarma apagada: a la tercera se deja de mirar y el día
+    que falle de verdad no se entera nadie.
+
+    Rojo solo cuando no se pudo grabar: ni una descarga buena, o más de la
+    mitad caídas. Lo demás queda escrito en `lastError`, que es donde se mira
+    cuando se quiere saber, sin gritar cuando no hace falta.
+  */
+  const bajadas = Object.values(via).reduce((a, b) => a + b, 0);
+  const roto = bajadas === 0 || fallos > bajadas;
+  salida("ok", String(!roto));
   if (errores.length) console.error(`FALLOS: ${estado.lastError}`);
 }
 
