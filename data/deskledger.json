@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "source": "binance-futures · solo velas cerradas · mismo codigo que la app",
+  "source": "velas cerradas · binance 80 · mismo codigo que la app",
   "marcos": [
     "1H",
     "4H",
     "1D",
     "1W"
   ],
-  "updatedAt": 1788571135333,
-  "lastRunAt": 1788571135333,
-  "lastError": "MARSCOINUSDT 1H: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP · MARSCOINUSDT 4H: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP · MARSCOINUSDT 1D: binance descartado en esta vuelta | respaldo: OKX code 51001 Instrument ID, Instrument ID code, or Spread ID doesn't exist. en MARSCOIN-USDT-SWAP",
+  "updatedAt": 1788571268654,
+  "lastRunAt": 1788571268654,
+  "lastError": null,
   "ultimaBarra": {
     "BTCUSDT|1H": 1788566400000,
     "BTCUSDT|4H": 1788552000000,

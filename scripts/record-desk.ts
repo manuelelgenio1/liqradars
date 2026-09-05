@@ -389,6 +389,26 @@ async function main(): Promise<void> {
   estado.lastError = errores.length ? errores.slice(0, 4).join(" · ") : null;
   estado.marcos = [...MARCOS];
 
+  /*
+    DE DÓNDE SALIERON LAS VELAS, ESCRITO ANTES DE GUARDAR.
+
+    Esto estaba treinta líneas más abajo, o sea DESPUÉS de escribir el fichero,
+    así que no llegaba a guardarse nunca. La primera ejecución buena lo enseñó
+    sola: el fichero decía «binance-futures» y `lastError` decía que Binance se
+    había descartado y había entrado OKX. Un registro que se equivoca sobre su
+    propia procedencia es peor que uno sin ese campo — invita a concluir cosas
+    de un mercado con datos de otro.
+
+    Puede mezclar los dos en una misma vuelta, y se admite a propósito: los
+    perpetuos del mismo activo cotizan arbitrados a unos pocos puntos básicos,
+    y el stop está a 1,2 ATR, que son decenas. La diferencia entre mercados
+    añade ruido, no sesgo. Lo que NO se admite es no saber cuál fue.
+  */
+  const porVia = Object.entries(via)
+    .map(([k, n]) => `${k} ${n}`)
+    .join(" · ");
+  estado.source = `velas cerradas · ${porVia || "sin descargas"} · mismo codigo que la app`;
+
   mkdirSync(dirname(FICHERO), { recursive: true });
   writeFileSync(FICHERO, `${JSON.stringify(estado, null, 2)}\n`, "utf8");
 
@@ -419,9 +439,7 @@ async function main(): Promise<void> {
     ejecución en rojo. Al revés —morir aquí— es lo que hacía que el fallo se
     perdiera.
   */
-  const porVia = Object.entries(via).map(([k, n]) => `${k} ${n}`).join(" · ");
   if (porVia) console.log(`descargas: ${porVia}`);
-  estado.source = `velas cerradas · ${porVia || "sin descargas"} · mismo codigo que la app`;
 
   /*
     CUÁNDO SE PINTA EN ROJO, y por qué no siempre que algo falle.
