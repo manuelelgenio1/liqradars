@@ -97,6 +97,16 @@ interface Estado {
   source: string;
   marcos: string[];
   updatedAt: number;
+  /** cuándo corrió por última vez, haya encontrado algo o no */
+  lastRunAt: number;
+  /*
+    QUÉ FALLÓ EN LA ÚLTIMA VUELTA, escrito AQUÍ y no solo en los registros de
+    GitHub. Los registros de Actions piden autenticación para leerse, así que
+    un fallo en la nube era invisible desde fuera: la ejecución salía en rojo y
+    no había forma de saber por qué sin entrar a mano. Dejarlo en el fichero lo
+    pone en el historial de git, donde se lee sin permisos y queda fechado.
+  */
+  lastError: string | null;
   /** última vela YA JUZGADA de cada par y marco, indexada "SYM|TF" */
   ultimaBarra: Record<string, number>;
   abiertas: DeskSignal[];
@@ -108,6 +118,8 @@ const VACIO: Estado = {
   source: "binance-futures · solo velas cerradas · mismo codigo que la app",
   marcos: [...MARCOS],
   updatedAt: 0,
+  lastRunAt: 0,
+  lastError: null,
   ultimaBarra: {},
   abiertas: [],
   cerradas: [],
@@ -167,25 +179,55 @@ async function main(): Promise<void> {
   const antesAbiertas = estado.abiertas.length;
   const antesCerradas = estado.cerradas.length;
 
-  const universo = await fetchUniverse(PARES);
-  if (!universo.length) throw new Error("el universo vino vacio");
-  console.log(`${universo.length} pares · ${MARCOS.length} marcos`);
-
+  const errores: string[] = [];
   let nacidas = 0;
   let fallos = 0;
   let saltadas = 0;
 
-  for (const u of universo) {
+  /*
+    EL UNIVERSO NO PUEDE SER UN PUNTO ÚNICO DE FALLO.
+
+    Era la primera llamada de red y no estaba protegida: si Binance no
+    respondía —y desde un runner de GitHub puede no responder aunque desde
+    aquí sí— la ejecución entera moría antes de anotar una sola vela. Con
+    reintentos, y si aun así no hay universo, se sigue con los pares que ya
+    están en el registro. Un grabador que solo funciona cuando todo va bien no
+    sirve para dejarlo corriendo semanas.
+  */
+  let pares: string[] = [];
+  for (let intento = 1; intento <= 3 && !pares.length; intento++) {
+    try {
+      pares = (await fetchUniverse(PARES)).map((u) => u.symbol);
+    } catch (e) {
+      const m = `universo intento ${intento}: ${(e as Error).message}`;
+      console.error(m);
+      if (intento === 3) errores.push(m);
+      else await sleep(3000);
+    }
+  }
+  let fuente = "universo del dia";
+  if (!pares.length) {
+    pares = [...new Set(Object.keys(estado.ultimaBarra).map((k) => k.split("|")[0]))];
+    fuente = "pares ya conocidos (el universo no respondio)";
+  }
+  if (!pares.length) {
+    errores.push("sin universo y sin pares conocidos: no hay nada que grabar");
+  }
+  console.log(`${pares.length} pares · ${MARCOS.length} marcos · ${fuente}`);
+
+  for (const symbol of pares) {
     for (const key of MARCOS) {
       const tf = TIMEFRAMES.find((t) => t.key === key);
       if (!tf) continue;
       let velas: Candle[];
       try {
-        velas = await klines(u.symbol, tf.binance);
+        velas = await klines(symbol, tf.binance);
       } catch (e) {
         // Un par que falla no puede tumbar la ejecución entera: la de la hora
         // siguiente lo recupera, porque todo cuelga de velas cerradas.
-        console.error(`  ${u.symbol} ${key}: ${(e as Error).message}`);
+        const m = `${symbol} ${key}: ${(e as Error).message}`;
+        console.error(`  ${m}`);
+        if (fallos < 3) errores.push(m);
         fallos++;
         continue;
       }
@@ -193,7 +235,7 @@ async function main(): Promise<void> {
       await sleep(80);
 
       const ultima = velas[velas.length - 1];
-      const clave = `${u.symbol}|${key}`;
+      const clave = `${symbol}|${key}`;
       const visto = estado.ultimaBarra[clave] ?? 0;
 
       /*
@@ -223,7 +265,7 @@ async function main(): Promise<void> {
         // 1. cerrar lo que las velas ya resolvieron, con lo conocido entonces
         const cerradasAhora: LedgerEntry[] = [];
         estado.abiertas = estado.abiertas.filter((s) => {
-          if (s.symbol !== u.symbol || s.timeframe !== key) return true;
+          if (s.symbol !== symbol || s.timeframe !== key) return true;
           const apunte = resolverSenal(s, trozo);
           if (!apunte) return true;
           cerradasAhora.push(apunte);
@@ -246,7 +288,7 @@ async function main(): Promise<void> {
         */
         const nace = maybeBirth(
           {
-            symbol: u.symbol,
+            symbol,
             timeframe: key,
             tfMinutes: tf.minutes,
             side: fila.side,
@@ -256,7 +298,7 @@ async function main(): Promise<void> {
             stopAtr: STOP_ATR,
             targetAtr: TARGET_ATR,
           },
-          latestFor(estado.abiertas, u.symbol, key),
+          latestFor(estado.abiertas, symbol, key),
           velas[i].t
         );
         if (nace) {
@@ -271,6 +313,8 @@ async function main(): Promise<void> {
     estado.cerradas = estado.cerradas.slice(-MAX_APUNTES);
   }
   estado.updatedAt = Date.now();
+  estado.lastRunAt = estado.updatedAt;
+  estado.lastError = errores.length ? errores.slice(0, 4).join(" · ") : null;
   estado.marcos = [...MARCOS];
 
   mkdirSync(dirname(FICHERO), { recursive: true });
@@ -296,9 +340,32 @@ async function main(): Promise<void> {
   console.log(resumen + (fallos ? ` · ${fallos} descargas fallidas` : "") + (saltadas ? ` · ${saltadas} velas atrasadas fuera de tope` : ""));
   salida("changed", String(cambio));
   salida("summary", resumen);
+  /*
+    "ok" va aparte del código de salida a propósito: el script termina bien
+    para que el paso de guardar llegue a correr y el error quede escrito en el
+    repositorio. El flujo mira "ok" DESPUÉS de guardar y es quien pinta la
+    ejecución en rojo. Al revés —morir aquí— es lo que hacía que el fallo se
+    perdiera.
+  */
+  salida("ok", String(errores.length === 0));
+  if (errores.length) console.error(`FALLOS: ${estado.lastError}`);
 }
 
 main().catch((e: unknown) => {
+  // Red de seguridad: si algo se escapa de los catch de dentro, se anota en el
+  // fichero igual, para que la vuelta siguiente sepa qué pasó en esta.
   console.error(e);
-  process.exit(1);
+  try {
+    const estado = leerEstado();
+    estado.lastRunAt = Date.now();
+    estado.lastError = `caida no controlada: ${(e as Error).message}`;
+    mkdirSync(dirname(FICHERO), { recursive: true });
+    writeFileSync(FICHERO, `${JSON.stringify(estado, null, 2)}
+`, "utf8");
+    salida("changed", "true");
+    salida("summary", "caida no controlada");
+  } catch {
+    /* si ni eso se puede, que al menos salga en rojo */
+  }
+  salida("ok", "false");
 });

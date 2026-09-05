@@ -59,8 +59,14 @@ jobs:
         id: rec
         run: npx tsx scripts/record-desk.ts
 
+      # `always()` es lo que hace que un fallo quede registrado. Los registros
+      # de Actions piden autenticación para leerse, así que una ejecución en
+      # rojo era invisible desde fuera: había que entrar a mano a ver por qué.
+      # El script no muere cuando algo falla, escribe el motivo en el fichero,
+      # esto lo guarda, y el paso de abajo pinta la ejecución en rojo. El orden
+      # importa: al revés, el motivo se perdía con la ejecución.
       - name: Guardar en el historial
-        if: steps.rec.outputs.changed == 'true'
+        if: always() && steps.rec.outputs.changed == 'true'
         run: |
           git config user.name "grabador"
           git config user.email "grabador@users.noreply.github.com"
@@ -71,4 +77,10 @@ jobs:
             git pull --rebase --autostash origin "${GITHUB_REF_NAME}" && git push && exit 0
             sleep 5
           done
+          exit 1
+
+      - name: Que un fallo se vea
+        if: always() && steps.rec.outputs.ok != 'true'
+        run: |
+          echo "::error::El grabador termino con fallos. El motivo esta en data/deskledger.json, campo lastError."
           exit 1
