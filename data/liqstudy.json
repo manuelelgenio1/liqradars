@@ -1,15 +1,26 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 8",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1788686923259,
- "lastDataAt": 1788686923259,
- "runs": 20,
+ "updatedAt": 1788702106721,
+ "lastDataAt": 1788702106721,
+ "runs": 21,
  "obs": [
+  {
+   "id": "srv-1788687780000-DOGEUSDT",
+   "ts": 1788687780000,
+   "symbol": "DOGEUSDT",
+   "dominant": "long",
+   "notional": 311827,
+   "purity": 1,
+   "price": 0.08939,
+   "fwdPct": 0.6265,
+   "resolvedTs": 1788691380000
+  },
   {
    "id": "srv-1788685860000-ETHUSDT",
    "ts": 1788685860000,
@@ -17,7 +28,9 @@
    "dominant": "short",
    "notional": 833012,
    "purity": 0.9911,
-   "price": 2497.06
+   "price": 2497.06,
+   "fwdPct": 0.0657,
+   "resolvedTs": 1788689460000
   },
   {
    "id": "srv-1788685860000-SOLUSDT",
@@ -26,7 +39,9 @@
    "dominant": "short",
    "notional": 393267,
    "purity": 0.9613,
-   "price": 105.51
+   "price": 105.51,
+   "fwdPct": 1.0331,
+   "resolvedTs": 1788689460000
   },
   {
    "id": "srv-1788678780000-BTCUSDT",
