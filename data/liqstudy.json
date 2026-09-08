@@ -1,14 +1,14 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 3",
+ "source": "okx-liquidation-orders + velas: ninguna",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1788813387405,
+ "updatedAt": 1788842569644,
  "lastDataAt": 1788813387405,
- "runs": 29,
+ "runs": 30,
  "obs": [
   {
    "id": "srv-1788795480000-SOLUSDT",
