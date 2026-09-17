@@ -6,10 +6,28 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1789599557805,
- "lastDataAt": 1789599557805,
- "runs": 75,
+ "updatedAt": 1789608519519,
+ "lastDataAt": 1789608519519,
+ "runs": 76,
  "obs": [
+  {
+   "id": "srv-1789608300000-BTCUSDT",
+   "ts": 1789608300000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 942606,
+   "purity": 1,
+   "price": 76551.6
+  },
+  {
+   "id": "srv-1789608300000-ETHUSDT",
+   "ts": 1789608300000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 529410,
+   "purity": 1,
+   "price": 2434.72
+  },
   {
    "id": "srv-1789588920000-XRPUSDT",
    "ts": 1789588920000,
