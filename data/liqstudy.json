@@ -1,14 +1,14 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 6",
+ "source": "okx-liquidation-orders + velas: ninguna",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1789669071353,
+ "updatedAt": 1789691078744,
  "lastDataAt": 1789669071353,
- "runs": 79,
+ "runs": 80,
  "obs": [
   {
    "id": "srv-1789659660000-BTCUSDT",
