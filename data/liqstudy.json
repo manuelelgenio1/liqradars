@@ -6,10 +6,21 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1789828076292,
- "lastDataAt": 1789828076292,
- "runs": 89,
+ "updatedAt": 1789841051344,
+ "lastDataAt": 1789841051344,
+ "runs": 90,
  "obs": [
+  {
+   "id": "srv-1789830540000-BTCUSDT",
+   "ts": 1789830540000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 683691,
+   "purity": 1,
+   "price": 81711.2,
+   "fwdPct": -0.1493,
+   "resolvedTs": 1789834140000
+  },
   {
    "id": "srv-1789822980000-BTCUSDT",
    "ts": 1789822980000,
