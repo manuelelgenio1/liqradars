@@ -1,15 +1,48 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 2",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1789841051344,
- "lastDataAt": 1789841051344,
- "runs": 90,
+ "updatedAt": 1789850684754,
+ "lastDataAt": 1789850684754,
+ "runs": 91,
  "obs": [
+  {
+   "id": "srv-1789841520000-BTCUSDT",
+   "ts": 1789841520000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 862805,
+   "purity": 1,
+   "price": 81335,
+   "fwdPct": 0.0454,
+   "resolvedTs": 1789845120000
+  },
+  {
+   "id": "srv-1789841520000-SOLUSDT",
+   "ts": 1789841520000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 589824,
+   "purity": 1,
+   "price": 110.84,
+   "fwdPct": 0.1353,
+   "resolvedTs": 1789845120000
+  },
+  {
+   "id": "srv-1789832460000-BTCUSDT",
+   "ts": 1789832460000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 250314,
+   "purity": 1,
+   "price": 81839.7,
+   "fwdPct": 0.007,
+   "resolvedTs": 1789836060000
+  },
   {
    "id": "srv-1789830540000-BTCUSDT",
    "ts": 1789830540000,
