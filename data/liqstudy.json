@@ -6,10 +6,21 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790428143113,
- "lastDataAt": 1790428143113,
- "runs": 125,
+ "updatedAt": 1790442801052,
+ "lastDataAt": 1790442801052,
+ "runs": 126,
  "obs": [
+  {
+   "id": "srv-1790436900000-SOLUSDT",
+   "ts": 1790436900000,
+   "symbol": "SOLUSDT",
+   "dominant": "short",
+   "notional": 323130,
+   "purity": 1,
+   "price": 122.03,
+   "fwdPct": -0.3524,
+   "resolvedTs": 1790440500000
+  },
   {
    "id": "srv-1790413920000-DOGEUSDT",
    "ts": 1790413920000,
