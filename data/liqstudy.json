@@ -1,15 +1,48 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 2",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790442801052,
- "lastDataAt": 1790442801052,
- "runs": 126,
+ "updatedAt": 1790452470938,
+ "lastDataAt": 1790452470938,
+ "runs": 127,
  "obs": [
+  {
+   "id": "srv-1790448660000-XRPUSDT",
+   "ts": 1790448660000,
+   "symbol": "XRPUSDT",
+   "dominant": "long",
+   "notional": 1066232,
+   "purity": 1,
+   "price": 1.5196,
+   "fwdPct": 0.2237,
+   "resolvedTs": 1790452260000
+  },
+  {
+   "id": "srv-1790448000000-DOGEUSDT",
+   "ts": 1790448000000,
+   "symbol": "DOGEUSDT",
+   "dominant": "long",
+   "notional": 291570,
+   "purity": 1,
+   "price": 0.09722,
+   "fwdPct": -0.2366,
+   "resolvedTs": 1790451600000
+  },
+  {
+   "id": "srv-1790444040000-XRPUSDT",
+   "ts": 1790444040000,
+   "symbol": "XRPUSDT",
+   "dominant": "long",
+   "notional": 395457,
+   "purity": 1,
+   "price": 1.5335,
+   "fwdPct": -0.0978,
+   "resolvedTs": 1790447640000
+  },
   {
    "id": "srv-1790436900000-SOLUSDT",
    "ts": 1790436900000,
