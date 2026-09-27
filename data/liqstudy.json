@@ -6,10 +6,21 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790496935907,
- "lastDataAt": 1790496935907,
- "runs": 129,
+ "updatedAt": 1790517872815,
+ "lastDataAt": 1790517872815,
+ "runs": 130,
  "obs": [
+  {
+   "id": "srv-1790514060000-ETHUSDT",
+   "ts": 1790514060000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 275663,
+   "purity": 0.9993,
+   "price": 2701.64,
+   "fwdPct": 0.1214,
+   "resolvedTs": 1790517660000
+  },
   {
    "id": "srv-1790495820000-ETHUSDT",
    "ts": 1790495820000,
@@ -17,7 +28,9 @@
    "dominant": "short",
    "notional": 493505,
    "purity": 0.9986,
-   "price": 2716.76
+   "price": 2716.76,
+   "fwdPct": -0.1196,
+   "resolvedTs": 1790499420000
   },
   {
    "id": "srv-1790495340000-SOLUSDT",
@@ -26,7 +39,9 @@
    "dominant": "short",
    "notional": 301071,
    "purity": 1,
-   "price": 122.36
+   "price": 122.36,
+   "fwdPct": 1.5201,
+   "resolvedTs": 1790498940000
   },
   {
    "id": "srv-1790487420000-ETHUSDT",
