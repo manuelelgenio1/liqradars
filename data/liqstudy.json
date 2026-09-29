@@ -6,10 +6,21 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790697364431,
- "lastDataAt": 1790697364431,
- "runs": 139,
+ "updatedAt": 1790715080317,
+ "lastDataAt": 1790715080317,
+ "runs": 140,
  "obs": [
+  {
+   "id": "srv-1790700180000-XRPUSDT",
+   "ts": 1790700180000,
+   "symbol": "XRPUSDT",
+   "dominant": "long",
+   "notional": 332684,
+   "purity": 1,
+   "price": 1.4893,
+   "fwdPct": -0.4767,
+   "resolvedTs": 1790703780000
+  },
   {
    "id": "srv-1790694360000-ETHUSDT",
    "ts": 1790694360000,
@@ -17,7 +28,9 @@
    "dominant": "long",
    "notional": 352232,
    "purity": 1,
-   "price": 2699.04
+   "price": 2699.04,
+   "fwdPct": -1.0304,
+   "resolvedTs": 1790697960000
   },
   {
    "id": "srv-1790694240000-BTCUSDT",
@@ -26,7 +39,9 @@
    "dominant": "long",
    "notional": 298341,
    "purity": 1,
-   "price": 83561.1
+   "price": 83561.1,
+   "fwdPct": -0.6413,
+   "resolvedTs": 1790697840000
   },
   {
    "id": "srv-1790684160000-ETHUSDT",
