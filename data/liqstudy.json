@@ -1,15 +1,97 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 6",
+ "source": "okx-liquidation-orders + velas: okx 7",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790776109290,
- "lastDataAt": 1790776109290,
- "runs": 142,
+ "updatedAt": 1790796288551,
+ "lastDataAt": 1790796288551,
+ "runs": 143,
  "obs": [
+  {
+   "id": "srv-1790795520000-BTCUSDT",
+   "ts": 1790795520000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 297870,
+   "purity": 1,
+   "price": 83725
+  },
+  {
+   "id": "srv-1790795520000-XRPUSDT",
+   "ts": 1790795520000,
+   "symbol": "XRPUSDT",
+   "dominant": "long",
+   "notional": 314560,
+   "purity": 1,
+   "price": 1.4897
+  },
+  {
+   "id": "srv-1790793300000-BTCUSDT",
+   "ts": 1790793300000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 370713,
+   "purity": 1,
+   "price": 83778
+  },
+  {
+   "id": "srv-1790789820000-SOLUSDT",
+   "ts": 1790789820000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 378583,
+   "purity": 1,
+   "price": 118.92,
+   "fwdPct": -0.4373,
+   "resolvedTs": 1790793420000
+  },
+  {
+   "id": "srv-1790782260000-BTCUSDT",
+   "ts": 1790782260000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 314822,
+   "purity": 1,
+   "price": 84227.8,
+   "fwdPct": -0.0076,
+   "resolvedTs": 1790785860000
+  },
+  {
+   "id": "srv-1790778120000-ETHUSDT",
+   "ts": 1790778120000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 327661,
+   "purity": 1,
+   "price": 2683.73,
+   "fwdPct": -0.2869,
+   "resolvedTs": 1790781720000
+  },
+  {
+   "id": "srv-1790778120000-SOLUSDT",
+   "ts": 1790778120000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 621839,
+   "purity": 1,
+   "price": 118.86,
+   "fwdPct": -0.1935,
+   "resolvedTs": 1790781720000
+  },
+  {
+   "id": "srv-1790777880000-BTCUSDT",
+   "ts": 1790777880000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 283101,
+   "purity": 1,
+   "price": 84035,
+   "fwdPct": -0.3338,
+   "resolvedTs": 1790781480000
+  },
   {
    "id": "srv-1790775600000-BTCUSDT",
    "ts": 1790775600000,
@@ -17,7 +99,9 @@
    "dominant": "long",
    "notional": 369780,
    "purity": 1,
-   "price": 84032.4
+   "price": 84032.4,
+   "fwdPct": -0.5666,
+   "resolvedTs": 1790779200000
   },
   {
    "id": "srv-1790775480000-SOLUSDT",
@@ -26,7 +110,9 @@
    "dominant": "long",
    "notional": 273188,
    "purity": 1,
-   "price": 120.55
+   "price": 120.55,
+   "fwdPct": -1.2526,
+   "resolvedTs": 1790779080000
   },
   {
    "id": "srv-1790775300000-ETHUSDT",
@@ -35,7 +121,9 @@
    "dominant": "long",
    "notional": 722088,
    "purity": 1,
-   "price": 2705.74
+   "price": 2705.74,
+   "fwdPct": -1.3826,
+   "resolvedTs": 1790778900000
   },
   {
    "id": "srv-1790773740000-BTCUSDT",
@@ -44,7 +132,9 @@
    "dominant": "short",
    "notional": 467129,
    "purity": 1,
-   "price": 85570
+   "price": 85570,
+   "fwdPct": -1.4292,
+   "resolvedTs": 1790777340000
   },
   {
    "id": "srv-1790771400000-BTCUSDT",
