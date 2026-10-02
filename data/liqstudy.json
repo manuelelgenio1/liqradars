@@ -1,15 +1,75 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 6",
+ "source": "okx-liquidation-orders + velas: okx 7",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1790919849489,
- "lastDataAt": 1790919849489,
- "runs": 149,
+ "updatedAt": 1790944966193,
+ "lastDataAt": 1790944966193,
+ "runs": 150,
  "obs": [
+  {
+   "id": "srv-1790944260000-SOLUSDT",
+   "ts": 1790944260000,
+   "symbol": "SOLUSDT",
+   "dominant": "short",
+   "notional": 365740,
+   "purity": 1,
+   "price": 122.52
+  },
+  {
+   "id": "srv-1790944200000-BTCUSDT",
+   "ts": 1790944200000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 437276,
+   "purity": 1,
+   "price": 86932.6
+  },
+  {
+   "id": "srv-1790944200000-ETHUSDT",
+   "ts": 1790944200000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 1404495,
+   "purity": 0.9932,
+   "price": 2759.92
+  },
+  {
+   "id": "srv-1790929140000-DOGEUSDT",
+   "ts": 1790929140000,
+   "symbol": "DOGEUSDT",
+   "dominant": "short",
+   "notional": 343390,
+   "purity": 1,
+   "price": 0.09751,
+   "fwdPct": -0.1436,
+   "resolvedTs": 1790932740000
+  },
+  {
+   "id": "srv-1790929020000-ETHUSDT",
+   "ts": 1790929020000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 4642253,
+   "purity": 1,
+   "price": 2765.94,
+   "fwdPct": -0.504,
+   "resolvedTs": 1790932620000
+  },
+  {
+   "id": "srv-1790928960000-BTCUSDT",
+   "ts": 1790928960000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 715957,
+   "purity": 1,
+   "price": 86394.8,
+   "fwdPct": -0.2518,
+   "resolvedTs": 1790932560000
+  },
   {
    "id": "srv-1790919540000-ETHUSDT",
    "ts": 1790919540000,
@@ -17,7 +77,9 @@
    "dominant": "long",
    "notional": 389971,
    "purity": 1,
-   "price": 2712.34
+   "price": 2712.34,
+   "fwdPct": 0.681,
+   "resolvedTs": 1790923140000
   },
   {
    "id": "srv-1790919420000-BTCUSDT",
@@ -26,7 +88,9 @@
    "dominant": "long",
    "notional": 586365,
    "purity": 1,
-   "price": 86038
+   "price": 86038,
+   "fwdPct": -0.1199,
+   "resolvedTs": 1790923020000
   },
   {
    "id": "srv-1790915100000-SOLUSDT",
