@@ -1,14 +1,14 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 1",
+ "source": "okx-liquidation-orders + velas: ninguna",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791015132530,
+ "updatedAt": 1791050348912,
  "lastDataAt": 1791015132530,
- "runs": 154,
+ "runs": 155,
  "obs": [
   {
    "id": "srv-1790990100000-ETHUSDT",
