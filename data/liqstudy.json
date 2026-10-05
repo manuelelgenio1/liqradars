@@ -6,10 +6,81 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791184045622,
- "lastDataAt": 1791184045622,
- "runs": 162,
+ "updatedAt": 1791216323971,
+ "lastDataAt": 1791216323971,
+ "runs": 163,
  "obs": [
+  {
+   "id": "srv-1791216180000-BTCUSDT",
+   "ts": 1791216180000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 929801,
+   "purity": 1,
+   "price": 85138
+  },
+  {
+   "id": "srv-1791216180000-SOLUSDT",
+   "ts": 1791216180000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 619868,
+   "purity": 1,
+   "price": 119.13
+  },
+  {
+   "id": "srv-1791214320000-BTCUSDT",
+   "ts": 1791214320000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 708954,
+   "purity": 1,
+   "price": 85307.7
+  },
+  {
+   "id": "srv-1791210720000-SOLUSDT",
+   "ts": 1791210720000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 425863,
+   "purity": 1,
+   "price": 119.69,
+   "fwdPct": -0.2924,
+   "resolvedTs": 1791214320000
+  },
+  {
+   "id": "srv-1791209280000-ETHUSDT",
+   "ts": 1791209280000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 352385,
+   "purity": 1,
+   "price": 2727.93,
+   "fwdPct": -0.9718,
+   "resolvedTs": 1791212880000
+  },
+  {
+   "id": "srv-1791209220000-BTCUSDT",
+   "ts": 1791209220000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 481273,
+   "purity": 1,
+   "price": 86599.9,
+   "fwdPct": -1.1697,
+   "resolvedTs": 1791212820000
+  },
+  {
+   "id": "srv-1791191760000-BTCUSDT",
+   "ts": 1791191760000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 897052,
+   "purity": 1,
+   "price": 85776.9,
+   "fwdPct": 0.265,
+   "resolvedTs": 1791195360000
+  },
   {
    "id": "srv-1791183180000-ETHUSDT",
    "ts": 1791183180000,
@@ -17,7 +88,9 @@
    "dominant": "short",
    "notional": 519575,
    "purity": 1,
-   "price": 2725.37
+   "price": 2725.37,
+   "fwdPct": 0.0495,
+   "resolvedTs": 1791186780000
   },
   {
    "id": "srv-1791177480000-BTCUSDT",
