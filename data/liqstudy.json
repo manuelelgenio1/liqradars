@@ -6,10 +6,52 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791390857219,
- "lastDataAt": 1791390857219,
- "runs": 170,
+ "updatedAt": 1791410498218,
+ "lastDataAt": 1791410498218,
+ "runs": 171,
  "obs": [
+  {
+   "id": "srv-1791409380000-SOLUSDT",
+   "ts": 1791409380000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 480681,
+   "purity": 1,
+   "price": 115.25
+  },
+  {
+   "id": "srv-1791394800000-BTCUSDT",
+   "ts": 1791394800000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 327296,
+   "purity": 0.9974,
+   "price": 83086.3,
+   "fwdPct": 0.2311,
+   "resolvedTs": 1791398400000
+  },
+  {
+   "id": "srv-1791394800000-SOLUSDT",
+   "ts": 1791394800000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 320567,
+   "purity": 0.8189,
+   "price": 116.15,
+   "fwdPct": 0.0947,
+   "resolvedTs": 1791398400000
+  },
+  {
+   "id": "srv-1791393900000-ETHUSDT",
+   "ts": 1791393900000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 662482,
+   "purity": 1,
+   "price": 2560.04,
+   "fwdPct": -0.1879,
+   "resolvedTs": 1791397500000
+  },
   {
    "id": "srv-1791389160000-ETHUSDT",
    "ts": 1791389160000,
@@ -17,7 +59,9 @@
    "dominant": "short",
    "notional": 257332,
    "purity": 1,
-   "price": 2578.25
+   "price": 2578.25,
+   "fwdPct": -0.3817,
+   "resolvedTs": 1791392760000
   },
   {
    "id": "srv-1791382500000-ETHUSDT",
@@ -39,6 +83,17 @@
    "purity": 1,
    "price": 83102.2,
    "fwdPct": -0.1224,
+   "resolvedTs": 1791383880000
+  },
+  {
+   "id": "srv-1791380280000-SOLUSDT",
+   "ts": 1791380280000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 321211,
+   "purity": 1,
+   "price": 115.75,
+   "fwdPct": 0.0778,
    "resolvedTs": 1791383880000
   },
   {
@@ -138,6 +193,17 @@
    "purity": 1,
    "price": 0.08911,
    "fwdPct": 0.3703,
+   "resolvedTs": 1791371220000
+  },
+  {
+   "id": "srv-1791367620000-XRPUSDT",
+   "ts": 1791367620000,
+   "symbol": "XRPUSDT",
+   "dominant": "long",
+   "notional": 258716,
+   "purity": 1,
+   "price": 1.4486,
+   "fwdPct": 0.1933,
    "resolvedTs": 1791371220000
   },
   {
