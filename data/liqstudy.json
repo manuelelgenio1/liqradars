@@ -1,15 +1,37 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 6",
+ "source": "okx-liquidation-orders + velas: okx 2",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791562608615,
- "lastDataAt": 1791562608615,
- "runs": 178,
+ "updatedAt": 1791579656396,
+ "lastDataAt": 1791579656396,
+ "runs": 179,
  "obs": [
+  {
+   "id": "srv-1791575220000-ETHUSDT",
+   "ts": 1791575220000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 594439,
+   "purity": 1,
+   "price": 2475.54,
+   "fwdPct": 0.2028,
+   "resolvedTs": 1791578820000
+  },
+  {
+   "id": "srv-1791570960000-ETHUSDT",
+   "ts": 1791570960000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 846646,
+   "purity": 1,
+   "price": 2477.39,
+   "fwdPct": 0.0819,
+   "resolvedTs": 1791574560000
+  },
   {
    "id": "srv-1791556440000-ETHUSDT",
    "ts": 1791556440000,
