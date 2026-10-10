@@ -1,15 +1,37 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: ninguna",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791640020524,
- "lastDataAt": 1791616360188,
- "runs": 182,
+ "updatedAt": 1791657575734,
+ "lastDataAt": 1791657575734,
+ "runs": 183,
  "obs": [
+  {
+   "id": "srv-1791642540000-SOLUSDT",
+   "ts": 1791642540000,
+   "symbol": "SOLUSDT",
+   "dominant": "short",
+   "notional": 1463616,
+   "purity": 1,
+   "price": 110.41,
+   "fwdPct": -0.0362,
+   "resolvedTs": 1791646140000
+  },
+  {
+   "id": "srv-1791642360000-ETHUSDT",
+   "ts": 1791642360000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 259608,
+   "purity": 1,
+   "price": 2499.18,
+   "fwdPct": 0.3065,
+   "resolvedTs": 1791645960000
+  },
   {
    "id": "srv-1791591180000-DOGEUSDT",
    "ts": 1791591180000,
