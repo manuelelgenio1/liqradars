@@ -1,15 +1,24 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 2",
+ "source": "okx-liquidation-orders + velas: okx 1",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791579656396,
- "lastDataAt": 1791579656396,
- "runs": 179,
+ "updatedAt": 1791593735299,
+ "lastDataAt": 1791593735299,
+ "runs": 180,
  "obs": [
+  {
+   "id": "srv-1791591180000-DOGEUSDT",
+   "ts": 1791591180000,
+   "symbol": "DOGEUSDT",
+   "dominant": "short",
+   "notional": 413968,
+   "purity": 1,
+   "price": 0.08558
+  },
   {
    "id": "srv-1791575220000-ETHUSDT",
    "ts": 1791575220000,
