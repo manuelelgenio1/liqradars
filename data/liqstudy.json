@@ -1,14 +1,14 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 1",
+ "source": "okx-liquidation-orders + velas: ninguna",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791616360188,
+ "updatedAt": 1791640020524,
  "lastDataAt": 1791616360188,
- "runs": 181,
+ "runs": 182,
  "obs": [
   {
    "id": "srv-1791591180000-DOGEUSDT",
