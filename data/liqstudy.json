@@ -6,9 +6,9 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791593735299,
- "lastDataAt": 1791593735299,
- "runs": 180,
+ "updatedAt": 1791616360188,
+ "lastDataAt": 1791616360188,
+ "runs": 181,
  "obs": [
   {
    "id": "srv-1791591180000-DOGEUSDT",
@@ -17,7 +17,9 @@
    "dominant": "short",
    "notional": 413968,
    "purity": 1,
-   "price": 0.08558
+   "price": 0.08558,
+   "fwdPct": 0.2688,
+   "resolvedTs": 1791594780000
   },
   {
    "id": "srv-1791575220000-ETHUSDT",
