@@ -6,10 +6,32 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791683828716,
- "lastDataAt": 1791683828716,
- "runs": 184,
+ "updatedAt": 1791709083001,
+ "lastDataAt": 1791709083001,
+ "runs": 185,
  "obs": [
+  {
+   "id": "srv-1791692520000-ETHUSDT",
+   "ts": 1791692520000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 691999,
+   "purity": 1,
+   "price": 2502.49,
+   "fwdPct": 0.1582,
+   "resolvedTs": 1791696120000
+  },
+  {
+   "id": "srv-1791690660000-ETHUSDT",
+   "ts": 1791690660000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 250712,
+   "purity": 1,
+   "price": 2501.86,
+   "fwdPct": 0.1811,
+   "resolvedTs": 1791694260000
+  },
   {
    "id": "srv-1791672360000-DOGEUSDT",
    "ts": 1791672360000,
