@@ -1,15 +1,57 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 3",
+ "source": "okx-liquidation-orders + velas: okx 8",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1791733530247,
- "lastDataAt": 1791733530247,
- "runs": 186,
+ "updatedAt": 1791750044488,
+ "lastDataAt": 1791750044488,
+ "runs": 187,
  "obs": [
+  {
+   "id": "srv-1791749100000-SOLUSDT",
+   "ts": 1791749100000,
+   "symbol": "SOLUSDT",
+   "dominant": "long",
+   "notional": 555700,
+   "purity": 1,
+   "price": 111.12
+  },
+  {
+   "id": "srv-1791740100000-BTCUSDT",
+   "ts": 1791740100000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 375738,
+   "purity": 1,
+   "price": 84116.3,
+   "fwdPct": -0.3572,
+   "resolvedTs": 1791743700000
+  },
+  {
+   "id": "srv-1791736080000-ETHUSDT",
+   "ts": 1791736080000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 914113,
+   "purity": 1,
+   "price": 2546.24,
+   "fwdPct": -0.0491,
+   "resolvedTs": 1791739680000
+  },
+  {
+   "id": "srv-1791733740000-DOGEUSDT",
+   "ts": 1791733740000,
+   "symbol": "DOGEUSDT",
+   "dominant": "short",
+   "notional": 265416,
+   "purity": 1,
+   "price": 0.08684,
+   "fwdPct": 0.5988,
+   "resolvedTs": 1791737340000
+  },
   {
    "id": "srv-1791733200000-BTCUSDT",
    "ts": 1791733200000,
@@ -17,7 +59,9 @@
    "dominant": "short",
    "notional": 585016,
    "purity": 1,
-   "price": 83373.9
+   "price": 83373.9,
+   "fwdPct": 0.5556,
+   "resolvedTs": 1791736800000
   },
   {
    "id": "srv-1791733200000-ETHUSDT",
@@ -26,7 +70,9 @@
    "dominant": "short",
    "notional": 4235635,
    "purity": 1,
-   "price": 2527.62
+   "price": 2527.62,
+   "fwdPct": 0.6085,
+   "resolvedTs": 1791736800000
   },
   {
    "id": "srv-1791733200000-SOLUSDT",
@@ -35,7 +81,9 @@
    "dominant": "short",
    "notional": 702396,
    "purity": 1,
-   "price": 110.65
+   "price": 110.65,
+   "fwdPct": 1.0845,
+   "resolvedTs": 1791736800000
   },
   {
    "id": "srv-1791692520000-ETHUSDT",
