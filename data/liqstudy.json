@@ -1,15 +1,70 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 10",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1792039590487,
- "lastDataAt": 1792039590487,
- "runs": 201,
+ "updatedAt": 1792058396073,
+ "lastDataAt": 1792058396073,
+ "runs": 202,
  "obs": [
+  {
+   "id": "srv-1792050960000-BTCUSDT",
+   "ts": 1792050960000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 287292,
+   "purity": 1,
+   "price": 81507.6,
+   "fwdPct": -0.3087,
+   "resolvedTs": 1792054560000
+  },
+  {
+   "id": "srv-1792043460000-BTCUSDT",
+   "ts": 1792043460000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 4025678,
+   "purity": 1,
+   "price": 80628.5,
+   "fwdPct": 0.2342,
+   "resolvedTs": 1792047060000
+  },
+  {
+   "id": "srv-1792043460000-ETHUSDT",
+   "ts": 1792043460000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 499828,
+   "purity": 1,
+   "price": 2352.14,
+   "fwdPct": 0.1411,
+   "resolvedTs": 1792047060000
+  },
+  {
+   "id": "srv-1792041000000-BTCUSDT",
+   "ts": 1792041000000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 759667,
+   "purity": 1,
+   "price": 81258,
+   "fwdPct": -0.6074,
+   "resolvedTs": 1792044600000
+  },
+  {
+   "id": "srv-1792041000000-ETHUSDT",
+   "ts": 1792041000000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 474078,
+   "purity": 1,
+   "price": 2368.49,
+   "fwdPct": -0.6029,
+   "resolvedTs": 1792044600000
+  },
   {
    "id": "srv-1792038660000-BTCUSDT",
    "ts": 1792038660000,
@@ -17,7 +72,9 @@
    "dominant": "short",
    "notional": 548225,
    "purity": 1,
-   "price": 81470.4
+   "price": 81470.4,
+   "fwdPct": -0.5456,
+   "resolvedTs": 1792042260000
   },
   {
    "id": "srv-1792038660000-ETHUSDT",
@@ -26,7 +83,9 @@
    "dominant": "short",
    "notional": 1214592,
    "purity": 1,
-   "price": 2381.17
+   "price": 2381.17,
+   "fwdPct": -1.0058,
+   "resolvedTs": 1792042260000
   },
   {
    "id": "srv-1792035540000-ETHUSDT",
