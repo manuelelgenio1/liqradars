@@ -6,9 +6,9 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1792211607950,
+ "updatedAt": 1792244762739,
  "lastDataAt": 1792185289107,
- "runs": 210,
+ "runs": 211,
  "obs": [
   {
    "id": "srv-1792177620000-SOLUSDT",
