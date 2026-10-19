@@ -6,10 +6,72 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1792373026729,
- "lastDataAt": 1792373026729,
- "runs": 222,
+ "updatedAt": 1792396294537,
+ "lastDataAt": 1792396294537,
+ "runs": 223,
  "obs": [
+  {
+   "id": "srv-1792395240000-BTCUSDT",
+   "ts": 1792395240000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 9269927,
+   "purity": 1,
+   "price": 83095.6
+  },
+  {
+   "id": "srv-1792395240000-ETHUSDT",
+   "ts": 1792395240000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 1318562,
+   "purity": 1,
+   "price": 2441.57
+  },
+  {
+   "id": "srv-1792378140000-BTCUSDT",
+   "ts": 1792378140000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 351439,
+   "purity": 1,
+   "price": 82750,
+   "fwdPct": -0.3497,
+   "resolvedTs": 1792381740000
+  },
+  {
+   "id": "srv-1792378140000-ETHUSDT",
+   "ts": 1792378140000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 3155248,
+   "purity": 1,
+   "price": 2436.02,
+   "fwdPct": -0.6018,
+   "resolvedTs": 1792381740000
+  },
+  {
+   "id": "srv-1792378140000-SOLUSDT",
+   "ts": 1792378140000,
+   "symbol": "SOLUSDT",
+   "dominant": "short",
+   "notional": 426855,
+   "purity": 1,
+   "price": 105.79,
+   "fwdPct": -0.6333,
+   "resolvedTs": 1792381740000
+  },
+  {
+   "id": "srv-1792373580000-SOLUSDT",
+   "ts": 1792373580000,
+   "symbol": "SOLUSDT",
+   "dominant": "short",
+   "notional": 520945,
+   "purity": 1,
+   "price": 104.86,
+   "fwdPct": 0.0381,
+   "resolvedTs": 1792377180000
+  },
   {
    "id": "srv-1792372080000-ETHUSDT",
    "ts": 1792372080000,
@@ -17,7 +79,9 @@
    "dominant": "short",
    "notional": 1164357,
    "purity": 1,
-   "price": 2421.59
+   "price": 2421.59,
+   "fwdPct": 0.2688,
+   "resolvedTs": 1792375680000
   },
   {
    "id": "srv-1792370520000-BTCUSDT",
@@ -26,7 +90,9 @@
    "dominant": "short",
    "notional": 536920,
    "purity": 1,
-   "price": 82385.5
+   "price": 82385.5,
+   "fwdPct": 0.1224,
+   "resolvedTs": 1792374120000
   },
   {
    "id": "srv-1792366020000-BTCUSDT",
