@@ -1,14 +1,14 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 8",
+ "source": "okx-liquidation-orders + velas: okx 2",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1792476300071,
- "lastDataAt": 1792476300071,
- "runs": 227,
+ "updatedAt": 1792496676667,
+ "lastDataAt": 1792496676667,
+ "runs": 228,
  "obs": [
   {
    "id": "srv-1792476120000-BTCUSDT",
@@ -17,7 +17,9 @@
    "dominant": "long",
    "notional": 377791,
    "purity": 1,
-   "price": 81611.4
+   "price": 81611.4,
+   "fwdPct": 0.2242,
+   "resolvedTs": 1792479720000
   },
   {
    "id": "srv-1792476120000-XRPUSDT",
@@ -26,7 +28,9 @@
    "dominant": "long",
    "notional": 328760,
    "purity": 1,
-   "price": 1.2997
+   "price": 1.2997,
+   "fwdPct": 0.1539,
+   "resolvedTs": 1792479720000
   },
   {
    "id": "srv-1792458540000-BTCUSDT",
