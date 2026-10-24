@@ -1,15 +1,48 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 5",
+ "source": "okx-liquidation-orders + velas: okx 6",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1792797094123,
- "lastDataAt": 1792797094123,
- "runs": 244,
+ "updatedAt": 1792805942006,
+ "lastDataAt": 1792805942006,
+ "runs": 245,
  "obs": [
+  {
+   "id": "srv-1792801380000-BTCUSDT",
+   "ts": 1792801380000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 363005,
+   "purity": 1,
+   "price": 80680.9,
+   "fwdPct": 0.1676,
+   "resolvedTs": 1792804980000
+  },
+  {
+   "id": "srv-1792797480000-ETHUSDT",
+   "ts": 1792797480000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 723641,
+   "purity": 1,
+   "price": 2373.72,
+   "fwdPct": 0.1171,
+   "resolvedTs": 1792801080000
+  },
+  {
+   "id": "srv-1792797060000-BTCUSDT",
+   "ts": 1792797060000,
+   "symbol": "BTCUSDT",
+   "dominant": "long",
+   "notional": 261548,
+   "purity": 1,
+   "price": 80539.8,
+   "fwdPct": 0.5478,
+   "resolvedTs": 1792800660000
+  },
   {
    "id": "srv-1792795620000-XRPUSDT",
    "ts": 1792795620000,
@@ -17,7 +50,9 @@
    "dominant": "long",
    "notional": 717719,
    "purity": 1,
-   "price": 1.2936
+   "price": 1.2936,
+   "fwdPct": -0.0309,
+   "resolvedTs": 1792799220000
   },
   {
    "id": "srv-1792794660000-BTCUSDT",
@@ -26,7 +61,9 @@
    "dominant": "long",
    "notional": 269803,
    "purity": 1,
-   "price": 81139.6
+   "price": 81139.6,
+   "fwdPct": -0.3347,
+   "resolvedTs": 1792798260000
   },
   {
    "id": "srv-1792794660000-ETHUSDT",
@@ -35,7 +72,9 @@
    "dominant": "long",
    "notional": 663903,
    "purity": 1,
-   "price": 2385.02
+   "price": 2385.02,
+   "fwdPct": -0.4868,
+   "resolvedTs": 1792798260000
   },
   {
    "id": "srv-1792794660000-SOLUSDT",
@@ -44,7 +83,9 @@
    "dominant": "long",
    "notional": 261011,
    "purity": 1,
-   "price": 103.07
+   "price": 103.07,
+   "fwdPct": -0.6306,
+   "resolvedTs": 1792798260000
   },
   {
    "id": "srv-1792785600000-SOLUSDT",
