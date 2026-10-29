@@ -1,15 +1,88 @@
 {
  "schema": 1,
- "source": "okx-liquidation-orders + velas: okx 5",
+ "source": "okx-liquidation-orders + velas: okx 4",
  "lastError": null,
  "burstUsd": 250000,
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1793262885327,
- "lastDataAt": 1793262885327,
- "runs": 271,
+ "updatedAt": 1793290324201,
+ "lastDataAt": 1793290324201,
+ "runs": 272,
  "obs": [
+  {
+   "id": "srv-1793290140000-BTCUSDT",
+   "ts": 1793290140000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 457941,
+   "purity": 1,
+   "price": 81800
+  },
+  {
+   "id": "srv-1793288760000-ETHUSDT",
+   "ts": 1793288760000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 293819,
+   "purity": 1,
+   "price": 2369.18
+  },
+  {
+   "id": "srv-1793286540000-BTCUSDT",
+   "ts": 1793286540000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 361246,
+   "purity": 1,
+   "price": 81403.7,
+   "fwdPct": 0.4868,
+   "resolvedTs": 1793290140000
+  },
+  {
+   "id": "srv-1793286540000-ETHUSDT",
+   "ts": 1793286540000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 2425847,
+   "purity": 1,
+   "price": 2360.46,
+   "fwdPct": 0.5003,
+   "resolvedTs": 1793290140000
+  },
+  {
+   "id": "srv-1793284320000-BTCUSDT",
+   "ts": 1793284320000,
+   "symbol": "BTCUSDT",
+   "dominant": "short",
+   "notional": 471551,
+   "purity": 1,
+   "price": 80666.3,
+   "fwdPct": 1.1412,
+   "resolvedTs": 1793287920000
+  },
+  {
+   "id": "srv-1793284320000-ETHUSDT",
+   "ts": 1793284320000,
+   "symbol": "ETHUSDT",
+   "dominant": "short",
+   "notional": 565453,
+   "purity": 1,
+   "price": 2338.92,
+   "fwdPct": 1.0573,
+   "resolvedTs": 1793287920000
+  },
+  {
+   "id": "srv-1793281140000-ETHUSDT",
+   "ts": 1793281140000,
+   "symbol": "ETHUSDT",
+   "dominant": "long",
+   "notional": 1198132,
+   "purity": 1,
+   "price": 2312.78,
+   "fwdPct": 1.5968,
+   "resolvedTs": 1793284740000
+  },
   {
    "id": "srv-1793254920000-ETHUSDT",
    "ts": 1793254920000,
