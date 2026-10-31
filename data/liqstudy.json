@@ -6,9 +6,9 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1793468844469,
- "lastDataAt": 1793468844469,
- "runs": 281,
+ "updatedAt": 1793482786222,
+ "lastDataAt": 1793482786222,
+ "runs": 282,
  "obs": [
   {
    "id": "srv-1793468760000-ETHUSDT",
@@ -17,7 +17,9 @@
    "dominant": "short",
    "notional": 1393444,
    "purity": 1,
-   "price": 2255.2
+   "price": 2255.2,
+   "fwdPct": 0.0811,
+   "resolvedTs": 1793472360000
   },
   {
    "id": "srv-1793418060000-SOLUSDT",
