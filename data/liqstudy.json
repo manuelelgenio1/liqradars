@@ -6,9 +6,9 @@
  "windowMs": 60000,
  "cooldownMs": 1800000,
  "horizonMs": 3600000,
- "updatedAt": 1794084952138,
- "lastDataAt": 1794084952138,
- "runs": 307,
+ "updatedAt": 1794098464180,
+ "lastDataAt": 1794098464180,
+ "runs": 308,
  "obs": [
   {
    "id": "srv-1794084420000-SOLUSDT",
@@ -17,7 +17,9 @@
    "dominant": "long",
    "notional": 463472,
    "purity": 1,
-   "price": 89.16
+   "price": 89.16,
+   "fwdPct": -0.0561,
+   "resolvedTs": 1794088020000
   },
   {
    "id": "srv-1794002520000-BTCUSDT",
